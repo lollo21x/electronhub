@@ -1,0 +1,11 @@
+{
+  "name": "electronhub",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Hub chimico interattivo: tavola periodica, configurazione elettronica, orbitali, Lewis e ottetto.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs"
+  }
+}
