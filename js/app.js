@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
   AUFBAU_ORDER,
   BLOCK_LABEL,
@@ -12,14 +13,23 @@ import {
   PHASE_LABEL,
   SHELL_NAMES,
   TEACHING_Z,
+  LAB_SPECIES,
+  PH_SAMPLES,
+  FUNCTIONAL_PAIRS,
+  ISOMER_CHALLENGES,
+  NA,
   allBoxes,
   buildQuiz,
+  describeIsomer,
   differentiatingElectron,
   fillAufbau,
   formatCondensed,
   formatFull,
+  formulaMass,
   getElement,
+  hFromPh,
   ionOccupancy,
+  isomerMatches,
   lName,
   msLabel,
   neighbors,
@@ -27,6 +37,7 @@ import {
   orbitalCapacity,
   orbitalL,
   orbitalN,
+  phColorCss,
   searchElements,
   splitCoreValence,
   tablePosition,
@@ -71,6 +82,11 @@ const RECAP = [
   ["Forze intermolecolari", "London, dipolo–dipolo, idrogeno"],
   ["Orbitale", "Casella quantistica, max 2 e⁻, forma s/p/d/f"],
   ["Risonanza", "Ibrido di più Lewis: cariche e doppi delocalizzati"],
+  ["Mole", "n = m/M = N/NA = c·V · NA = 6,022×10²³ mol⁻¹"],
+  ["Molarità", "c = n/V in mol/L · diluizione c₁V₁ = c₂V₂"],
+  ["pH", "−log[H₃O⁺] · pH + pOH = 14 a 25 °C"],
+  ["Isomeri di struttura", "Stessa formula, connettività diversa (catena, posizione, funzione)"],
+  ["Stereoisomeri", "Stessa connettività, spazio diverso: conformeri, cis/trans, enantiomeri"],
 ];
 const OCTET_ATOMS = ["H", "He", "C", "N", "O", "F", "Ne", "Na", "Mg", "Cl", "Ar", "K"];
 const NAV = [
@@ -113,6 +129,21 @@ const state = {
   covKind: "puro",
   forceKind: "london",
   trendHeat: "en",
+  labCmp: "h2o",
+  labMass: 18,
+  labVol: 0.25,
+  phValue: 7,
+  isoSkel: "n",
+  isoGroup: "oh",
+  isoPos: 1,
+  isoChallenge: 0,
+  isoFeedback: null,
+  funPair: "c2h6o",
+  stereoMode: "conform",
+  newmanAngle: 60,
+  geoIsomer: "cis",
+  opticalFace: "R",
+  showMirror: true,
   installHide: localStorage.getItem("electronhub-install-dismissed") === "1",
   deferredPrompt: null,
   ios: false,
@@ -302,6 +333,463 @@ function lewisSvg(form) {
     .join("");
   return `<svg viewBox="0 0 320 260" class="lewis-svg" role="img" aria-label="${esc(form.label)}">${bonds}${atoms}</svg>`;
 }
+
+function fmtMass(v) {
+  if (!Number.isFinite(v)) return "—";
+  if (v >= 100) return v.toFixed(1);
+  if (v >= 10) return v.toFixed(2);
+  return v.toFixed(3);
+}
+
+function fmtSci(n) {
+  if (!Number.isFinite(n) || n === 0) return "0";
+  const exp = Math.floor(Math.log10(Math.abs(n)));
+  const m = n / 10 ** exp;
+  const expStr = String(exp).replace("-", "−");
+  return `${m.toFixed(2)} × 10${[...expStr].map((ch) => ({ "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "−": "⁻" }[ch] ?? ch)).join("")}`;
+}
+
+function beakerSvg(fillCss, label, opts = {}) {
+  const level = Math.max(0.16, Math.min(0.84, opts.level ?? 0.55));
+  const y = 44 + (1 - level) * 148;
+  const foam = opts.bubbles
+    ? Array.from({ length: 7 }, (_, i) => {
+        const bx = 92 + ((i * 17) % 56);
+        const by = Math.min(186, y + 12 + (i % 3) * 11);
+        return `<circle cx="${bx}" cy="${by}" r="${1.6 + (i % 3) * 0.5}" fill="color-mix(in oklab, var(--color-fg) 38%, transparent)"/>`;
+      }).join("")
+    : "";
+  return `<svg viewBox="0 0 240 230" class="lab-svg" role="img" aria-label="${esc(label)}">
+    <defs>
+      <linearGradient id="beak-shine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity="0.08"/>
+        <stop offset="0.35" stop-color="#fff" stop-opacity="0"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="0.05"/>
+      </linearGradient>
+    </defs>
+    <path d="M82 ${y} H158 V168 C158 192 142 202 120 202 C98 202 82 192 82 168 Z" fill="${fillCss}"/>
+    <path d="M82 ${y} Q120 ${y - 5} 158 ${y}" fill="none" stroke="color-mix(in oklab, var(--color-fg) 28%, transparent)" stroke-width="1.8"/>
+    ${foam}
+    <path d="M64 14 h112 v14 h-14 v140 c0 32-20 46-46 46 s-46-14-46-46 V28 H64 Z" fill="url(#beak-shine)" stroke="var(--color-border-strong)" stroke-width="1.7"/>
+    ${[0, 1, 2, 3, 4].map((i) => {
+      const gy = 52 + i * 28;
+      return `<line x1="162" y1="${gy}" x2="172" y2="${gy}" stroke="var(--color-subtle)" stroke-width="1"/><text x="178" y="${gy + 3}" fill="var(--color-subtle)" font-size="8" font-family="var(--font-mono)">${250 - i * 50}</text>`;
+    }).join("")}
+    <rect x="82" y="6" width="76" height="12" rx="2" fill="var(--color-surface)" stroke="var(--color-border)"/>
+  </svg>`;
+}
+
+function flaskSvg(conc, fillCss) {
+  const opacity = Math.max(0.22, Math.min(0.92, 0.22 + conc * 0.5));
+  return `<svg viewBox="0 0 220 240" class="lab-svg" role="img" aria-label="Matraccio tarato">
+    <path d="M96 12 h28 v70 l46 92 c8 16 8 38-18 48 h-84 c-26-10-26-32-18-48 L96 82 V12 Z" fill="var(--color-elevated)" stroke="var(--color-border-strong)" stroke-width="1.6"/>
+    <path d="M102 90 l36 74 c5 11 5 24-10 31 h-50 c-15-7-15-20-10-31 Z" fill="${fillCss}" fill-opacity="${opacity}"/>
+    <line x1="68" y1="168" x2="152" y2="168" stroke="var(--color-warn)" stroke-width="1.4" stroke-dasharray="3 3"/>
+    <text x="110" y="162" text-anchor="middle" fill="var(--color-warn)" font-size="9" font-family="var(--font-mono)">tratto</text>
+    <rect x="92" y="4" width="36" height="12" rx="2" fill="var(--color-surface)" stroke="var(--color-border)"/>
+  </svg>`;
+}
+
+function electrodeSvg(pH) {
+  const css = phColorCss(pH);
+  return `<svg viewBox="0 0 80 230" class="lab-svg electrode" role="img" aria-label="Elettrodo di vetro">
+    <rect x="34" y="8" width="12" height="110" rx="3" fill="var(--color-core)"/>
+    <rect x="28" y="112" width="24" height="58" rx="8" fill="color-mix(in oklab, var(--color-accent) 40%, var(--color-elevated))" stroke="var(--color-border-strong)"/>
+    <path d="M28 168 h24 l-6 28 h-12 Z" fill="${css}" stroke="var(--color-border-strong)"/>
+    <circle cx="40" cy="202" r="10" fill="${css}" stroke="var(--color-fg)" stroke-width="1.2"/>
+  </svg>`;
+}
+
+function stripSvg(pH) {
+  const stops = [1, 3, 5, 7, 9, 11, 13];
+  const xMark = 16 + (pH / 14) * 248;
+  return `<svg viewBox="0 0 280 56" class="ph-strip" role="img" aria-label="Cartina universale">
+    ${stops.map((v, i) => `<rect x="${16 + i * 36}" y="14" width="32" height="18" rx="3" fill="${phColorCss(v)}"/>`).join("")}
+    <polygon points="${xMark},8 ${xMark - 5},0 ${xMark + 5},0" fill="var(--color-fg)"/>
+    <text x="16" y="48" fill="var(--color-subtle)" font-size="9" font-family="var(--font-mono)">1</text>
+    <text x="136" y="48" fill="var(--color-subtle)" font-size="9" font-family="var(--font-mono)">7</text>
+    <text x="248" y="48" fill="var(--color-subtle)" font-size="9" font-family="var(--font-mono)">13</text>
+  </svg>`;
+}
+
+function bondStroke(p, q, order, color) {
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const px = (-dy / len) * 3.5;
+  const py = (dx / len) * 3.5;
+  const sw = 2.6;
+  if (order === 2) {
+    return `<line x1="${p.x + px}" y1="${p.y + py}" x2="${q.x + px}" y2="${q.y + py}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/><line x1="${p.x - px}" y1="${p.y - py}" x2="${q.x - px}" y2="${q.y - py}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+  }
+  return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+}
+
+function molLayout(skel, group, pos, geo) {
+  const p = Number(pos);
+  if (skel === "iso") {
+    return {
+      pts: [
+        { id: 1, x: 88, y: 162 },
+        { id: 2, x: 170, y: 108 },
+        { id: 3, x: 252, y: 162 },
+        { id: 4, x: 170, y: 36 },
+      ],
+      bonds: [
+        [1, 2],
+        [2, 3],
+        [2, 4],
+      ],
+      double: group === "=" ? [2, 4] : null,
+      hydrogens:
+        group === "="
+          ? [
+              { x: 122, y: 28, from: 4, label: "H" },
+              { x: 218, y: 28, from: 4, label: "H" },
+            ]
+          : [],
+    };
+  }
+  if (group === "=" && (p === 2 || p === 3)) {
+    const cis = geo !== "trans";
+    return {
+      pts: [
+        { id: 1, x: 68, y: 46 },
+        { id: 2, x: 128, y: 108 },
+        { id: 3, x: 212, y: 108 },
+        { id: 4, x: 272, y: cis ? 46 : 170 },
+      ],
+      bonds: [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      double: [2, 3],
+      hydrogens: [
+        { x: 86, y: 170, from: 2, label: "H" },
+        { x: 254, y: cis ? 170 : 46, from: 3, label: "H" },
+      ],
+    };
+  }
+  if (group === "=" && p === 1) {
+    return {
+      pts: [
+        { id: 1, x: 56, y: 108 },
+        { id: 2, x: 140, y: 108 },
+        { id: 3, x: 208, y: 158 },
+        { id: 4, x: 276, y: 108 },
+      ],
+      bonds: [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      double: [1, 2],
+      hydrogens: [
+        { x: 28, y: 58, from: 1, label: "H" },
+        { x: 28, y: 158, from: 1, label: "H" },
+      ],
+    };
+  }
+  if (group === "=" && p === 4) {
+    return {
+      pts: [
+        { id: 1, x: 56, y: 108 },
+        { id: 2, x: 124, y: 158 },
+        { id: 3, x: 192, y: 108 },
+        { id: 4, x: 276, y: 108 },
+      ],
+      bonds: [
+        [1, 2],
+        [2, 3],
+        [3, 4],
+      ],
+      double: [3, 4],
+      hydrogens: [
+        { x: 304, y: 58, from: 4, label: "H" },
+        { x: 304, y: 158, from: 4, label: "H" },
+      ],
+    };
+  }
+  return {
+    pts: [
+      { id: 1, x: 56, y: 142 },
+      { id: 2, x: 124, y: 78 },
+      { id: 3, x: 192, y: 142 },
+      { id: 4, x: 260, y: 78 },
+    ],
+    bonds: [
+      [1, 2],
+      [2, 3],
+      [3, 4],
+    ],
+    double: null,
+    hydrogens: [],
+  };
+}
+
+function groupTip(skel, pos, attach) {
+  const p = Number(pos);
+  if (skel === "iso") {
+    if (p === 2) return { x: attach.x, y: attach.y + 54, tx: attach.x + 18, ty: attach.y + 68 };
+    if (p === 4) return { x: attach.x + 4, y: attach.y - 50, tx: attach.x + 22, ty: attach.y - 54 };
+    if (p === 1) return { x: attach.x - 50, y: attach.y + 16, tx: attach.x - 74, ty: attach.y + 22 };
+    return { x: attach.x + 50, y: attach.y + 16, tx: attach.x + 74, ty: attach.y + 22 };
+  }
+  if (p === 1) return { x: attach.x - 50, y: attach.y + 38, tx: attach.x - 76, ty: attach.y + 44 };
+  if (p === 2) return { x: attach.x, y: attach.y - 52, tx: attach.x + 18, ty: attach.y - 56 };
+  if (p === 3) return { x: attach.x, y: attach.y + 52, tx: attach.x + 18, ty: attach.y + 60 };
+  return { x: attach.x + 50, y: attach.y - 38, tx: attach.x + 76, ty: attach.y - 44 };
+}
+
+function skeletalSvg(skel, group, pos, geo = "cis", opts = {}) {
+  const mini = Boolean(opts.mini);
+  const layout = molLayout(skel, group, pos, geo);
+  const byId = Object.fromEntries(layout.pts.map((pt) => [pt.id, pt]));
+  const ink = "var(--color-fg)";
+  const bonds = layout.bonds
+    .map(([a, b]) => {
+      const isD = layout.double && ((layout.double[0] === a && layout.double[1] === b) || (layout.double[0] === b && layout.double[1] === a));
+      return bondStroke(byId[a], byId[b], isD ? 2 : 1, isD ? "var(--color-electron)" : ink);
+    })
+    .join("");
+  const hydrogens = layout.hydrogens
+    .map((h) => {
+      const from = byId[h.from];
+      return `<line x1="${from.x}" y1="${from.y}" x2="${h.x}" y2="${h.y}" stroke="${ink}" stroke-width="1.7" stroke-linecap="round"/><text x="${h.x + (h.x - from.x) * 0.22}" y="${h.y + (h.y - from.y) * 0.22 + 4}" text-anchor="middle" fill="var(--color-muted)" font-size="${mini ? 10 : 12}" font-family="var(--font-sans)">${h.label}</text>`;
+    })
+    .join("");
+  let groupMark = "";
+  if (group === "oh" || group === "cl") {
+    const attach = byId[Number(pos)] ?? layout.pts[0];
+    const tip = groupTip(skel, pos, attach);
+    const col = group === "oh" ? "var(--color-electron)" : "var(--color-warn)";
+    const label = group === "oh" ? "OH" : "Cl";
+    groupMark = `<line x1="${attach.x}" y1="${attach.y}" x2="${tip.x}" y2="${tip.y}" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/><text x="${tip.tx}" y="${tip.ty}" fill="${col}" font-size="${mini ? 12 : 15}" font-family="var(--font-sans)" font-weight="500">${label}</text>`;
+  }
+  const verts = layout.pts
+    .map((pt) => {
+      const on = !mini && pt.id === Number(pos) && group !== "h";
+      const nOff = skel === "iso"
+        ? pt.id === 2
+          ? { x: 14, y: -6 }
+          : pt.id === 4
+            ? { x: 16, y: 6 }
+            : pt.id === 1
+              ? { x: -12, y: 16 }
+              : { x: 12, y: 16 }
+        : pt.id % 2 === 1
+          ? { x: 0, y: 18 }
+          : { x: 0, y: -16 };
+      const num = mini
+        ? ""
+        : `<text x="${pt.x + nOff.x}" y="${pt.y + nOff.y}" text-anchor="middle" fill="var(--color-subtle)" font-size="10" font-family="var(--font-mono)">${pt.id}</text>`;
+      const hit = mini
+        ? ""
+        : `<circle class="iso-hit" cx="${pt.x}" cy="${pt.y}" r="22" fill="transparent" data-act="iso-pos:${pt.id}"/>`;
+      return `<circle cx="${pt.x}" cy="${pt.y}" r="${on ? 5 : 3.1}" fill="${on ? "var(--color-electron)" : ink}"/>${num}${hit}`;
+    })
+    .join("");
+  return `<svg viewBox="0 0 340 210" class="mol-svg${mini ? " is-mini" : ""}" role="img" aria-label="Formula di struttura">${bonds}${hydrogens}${groupMark}${verts}</svg>`;
+}
+
+function isomerFamily(skel, group) {
+  if (group === "h") {
+    return [
+      { skel: "n", group: "h", pos: 1, geo: "cis", name: "butano" },
+      { skel: "iso", group: "h", pos: 2, geo: "cis", name: "2-metilpropano" },
+    ];
+  }
+  if (group === "oh") {
+    return [
+      { skel: "n", group: "oh", pos: 1, geo: "cis", name: "butan-1-olo" },
+      { skel: "n", group: "oh", pos: 2, geo: "cis", name: "butan-2-olo" },
+      { skel: "iso", group: "oh", pos: 1, geo: "cis", name: "2-metilpropan-1-olo" },
+      { skel: "iso", group: "oh", pos: 2, geo: "cis", name: "2-metilpropan-2-olo" },
+    ];
+  }
+  if (group === "cl") {
+    return [
+      { skel: "n", group: "cl", pos: 1, geo: "cis", name: "1-clorobutano" },
+      { skel: "n", group: "cl", pos: 2, geo: "cis", name: "2-clorobutano" },
+      { skel: "iso", group: "cl", pos: 1, geo: "cis", name: "1-cloro-2-metilpropano" },
+      { skel: "iso", group: "cl", pos: 2, geo: "cis", name: "2-cloro-2-metilpropano" },
+    ];
+  }
+  return [
+    { skel: "n", group: "=", pos: 1, geo: "cis", name: "but-1-ene" },
+    { skel: "n", group: "=", pos: 2, geo: "cis", name: "but-2-ene" },
+    { skel: "iso", group: "=", pos: 2, geo: "cis", name: "2-metilpropene" },
+  ];
+}
+
+function familyStrip(skel, group, pos, geo) {
+  const info = describeIsomer({ skel, group, pos });
+  return `<div class="iso-family">${isomerFamily(skel, group)
+    .map((m) => {
+      const other = describeIsomer(m);
+      let active = other.name === info.name;
+      if (info.name === "but-2-ene") {
+        active = m.skel === "n" && m.group === "=" && m.pos === 2;
+      }
+      return `<button type="button" class="iso-mini${active ? " is-on" : ""}" data-act="iso-set:${m.skel}:${m.group}:${m.pos}:${m.geo}">
+        ${skeletalSvg(m.skel, m.group, m.pos, m.geo, { mini: true })}
+        <span>${esc(m.name)}</span>
+      </button>`;
+    })
+    .join("")}</div>`;
+}
+
+function functionalSvg(id) {
+  const map = {
+    etoh: `<svg viewBox="0 0 260 120" class="mol-svg"><line x1="36" y1="78" x2="108" y2="42" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="108" y1="42" x2="176" y2="78" stroke="var(--color-electron)" stroke-width="2.5" stroke-linecap="round"/><circle cx="36" cy="78" r="3" fill="var(--color-fg)"/><circle cx="108" cy="42" r="3" fill="var(--color-fg)"/><text x="196" y="84" fill="var(--color-electron)" font-size="16" font-family="var(--font-sans)" font-weight="500">OH</text></svg>`,
+    dme: `<svg viewBox="0 0 260 120" class="mol-svg"><line x1="36" y1="64" x2="104" y2="64" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="156" y1="64" x2="224" y2="64" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><circle cx="130" cy="64" r="13" fill="var(--color-elevated)" stroke="var(--color-electron)" stroke-width="1.6"/><text x="130" y="68" text-anchor="middle" fill="var(--color-electron)" font-size="14" font-family="var(--font-sans)">O</text><text x="18" y="54" fill="var(--color-muted)" font-size="12">H₃C</text><text x="228" y="54" fill="var(--color-muted)" font-size="12">CH₃</text></svg>`,
+    propanal: `<svg viewBox="0 0 280 120" class="mol-svg"><line x1="36" y1="78" x2="100" y2="44" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="100" y1="44" x2="168" y2="78" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="168" y1="78" x2="224" y2="40" stroke="var(--color-warn)" stroke-width="2.5"/><line x1="164" y1="74" x2="220" y2="36" stroke="var(--color-warn)" stroke-width="2"/><circle cx="36" cy="78" r="3" fill="var(--color-fg)"/><circle cx="100" cy="44" r="3" fill="var(--color-fg)"/><circle cx="168" cy="78" r="3" fill="var(--color-fg)"/><text x="232" y="36" fill="var(--color-warn)" font-size="14">O</text><text x="176" y="102" fill="var(--color-muted)" font-size="12">H</text></svg>`,
+    acetone: `<svg viewBox="0 0 280 130" class="mol-svg"><line x1="40" y1="86" x2="116" y2="86" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="144" y1="86" x2="220" y2="86" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="130" y1="86" x2="130" y2="32" stroke="var(--color-warn)" stroke-width="2.5"/><line x1="136" y1="86" x2="136" y2="32" stroke="var(--color-warn)" stroke-width="2"/><circle cx="130" cy="86" r="12" fill="var(--color-elevated)" stroke="var(--color-border-strong)"/><text x="130" y="90" text-anchor="middle" fill="var(--color-fg)" font-size="13">C</text><text x="140" y="24" fill="var(--color-warn)" font-size="14">O</text><text x="24" y="76" fill="var(--color-muted)" font-size="12">H₃C</text><text x="226" y="76" fill="var(--color-muted)" font-size="12">CH₃</text></svg>`,
+    propoh: `<svg viewBox="0 0 280 120" class="mol-svg"><line x1="36" y1="78" x2="104" y2="42" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="104" y1="42" x2="172" y2="78" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="172" y1="78" x2="230" y2="46" stroke="var(--color-electron)" stroke-width="2.5" stroke-linecap="round"/><circle cx="36" cy="78" r="3" fill="var(--color-fg)"/><circle cx="104" cy="42" r="3" fill="var(--color-fg)"/><circle cx="172" cy="78" r="3" fill="var(--color-fg)"/><text x="240" y="44" fill="var(--color-electron)" font-size="15" font-family="var(--font-sans)" font-weight="500">OH</text></svg>`,
+    eme: `<svg viewBox="0 0 280 120" class="mol-svg"><line x1="28" y1="64" x2="90" y2="64" stroke="var(--color-fg)" stroke-width="2.5"/><circle cx="112" cy="64" r="13" fill="var(--color-elevated)" stroke="var(--color-electron)" stroke-width="1.6"/><text x="112" y="68" text-anchor="middle" fill="var(--color-electron)" font-size="14">O</text><line x1="134" y1="64" x2="188" y2="38" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><line x1="188" y1="38" x2="244" y2="64" stroke="var(--color-fg)" stroke-width="2.5" stroke-linecap="round"/><circle cx="188" cy="38" r="3" fill="var(--color-fg)"/><circle cx="244" cy="64" r="3" fill="var(--color-fg)"/><text x="16" y="54" fill="var(--color-muted)" font-size="12">H₃C</text></svg>`,
+  };
+  return map[id] ?? "";
+}
+
+function newmanSvg(angle) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const cx = 120;
+  const cy = 118;
+  const rf = 58;
+  const rb = 74;
+  const ecl = Math.min(...[0, 120, 240].map((k) => Math.abs(((angle - k + 180) % 360) - 180)));
+  const isEcl = ecl < 12;
+  const drawAngle = isEcl ? angle + 8 : angle;
+  const front = [0, 120, 240].map((base) => {
+    const a = rad(base + drawAngle);
+    return { x: cx + rf * Math.sin(a), y: cy - rf * Math.cos(a) };
+  });
+  const back = [0, 120, 240].map((base) => {
+    const a = rad(base);
+    return { x: cx + rb * Math.sin(a), y: cy - rb * Math.cos(a) };
+  });
+  const isStag = Math.abs(((angle % 120) - 60)) < 12;
+  return `<svg viewBox="0 0 240 240" class="mol-svg newman" role="img" aria-label="Proiezione di Newman dell’etano">
+    <defs>
+      <radialGradient id="newman-disk" cx="42%" cy="38%" r="62%">
+        <stop offset="0" stop-color="color-mix(in oklab, var(--color-elevated) 70%, var(--color-fg))"/>
+        <stop offset="1" stop-color="var(--color-elevated)"/>
+      </radialGradient>
+    </defs>
+    ${back
+      .map(
+        (p) =>
+          `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="var(--color-core)" stroke-width="2.3" stroke-linecap="round"/><circle cx="${p.x}" cy="${p.y}" r="8" fill="var(--color-core)"/><text x="${p.x + (p.x - cx) * 0.16}" y="${p.y + (p.y - cy) * 0.16 + 1}" text-anchor="middle" dominant-baseline="middle" fill="var(--color-muted)" font-size="11">H</text>`,
+      )
+      .join("")}
+    <circle cx="${cx}" cy="${cy}" r="36" fill="url(#newman-disk)" stroke="var(--color-border-strong)" stroke-width="3"/>
+    ${front
+      .map(
+        (p) =>
+          `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="var(--color-valence)" stroke-width="2.8" stroke-linecap="round"/><circle cx="${p.x}" cy="${p.y}" r="8" fill="var(--color-valence)"/><text x="${p.x + (p.x - cx) * 0.18}" y="${p.y + (p.y - cy) * 0.18 + 1}" text-anchor="middle" dominant-baseline="middle" fill="var(--color-fg)" font-size="11">H</text>`,
+      )
+      .join("")}
+    <circle cx="${cx}" cy="${cy}" r="5" fill="var(--color-fg)"/>
+    <text x="120" y="228" text-anchor="middle" fill="var(--color-subtle)" font-size="11" font-family="var(--font-mono)">${isEcl ? "eclissato" : isStag ? "sfalsato" : `ω = ${Math.round(angle)}°`}</text>
+  </svg>`;
+}
+
+function energyCurve(angle) {
+  const w = 280;
+  const h = 92;
+  const pts = [];
+  for (let i = 0; i <= 72; i += 1) {
+    const deg = (i / 72) * 360;
+    const e = 0.5 * (1 + Math.cos((3 * deg * Math.PI) / 180));
+    pts.push(`${(i / 72) * w},${h - 10 - e * (h - 28)}`);
+  }
+  const t = angle / 360;
+  const eNow = 0.5 * (1 + Math.cos((3 * angle * Math.PI) / 180));
+  const x = t * w;
+  const y = h - 10 - eNow * (h - 28);
+  const ticks = [0, 60, 120, 180, 240, 300].map((d) => {
+    const tx = (d / 360) * w;
+    return `<line x1="${tx}" y1="${h - 8}" x2="${tx}" y2="${h - 4}" stroke="var(--color-subtle)"/><text x="${tx}" y="${h}" text-anchor="middle" fill="var(--color-subtle)" font-size="8">${d}°</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" class="energy-svg" role="img" aria-label="Energia di torsione">
+    <polygon points="0,${h - 10} ${pts.join(" ")} ${w},${h - 10}" fill="color-mix(in oklab, var(--color-electron) 16%, transparent)"/>
+    <polyline points="${pts.join(" ")}" fill="none" stroke="var(--color-electron)" stroke-width="1.8"/>
+    <circle cx="${x}" cy="${y}" r="4.5" fill="var(--color-fg)"/>
+    <text x="6" y="12" fill="var(--color-subtle)" font-size="9">E</text>
+    ${ticks}
+  </svg>`;
+}
+
+function buteneSvg(geo) {
+  const cis = geo === "cis";
+  return `<svg viewBox="0 0 320 190" class="mol-svg" role="img" aria-label="But-2-ene ${geo}">
+    <line x1="112" y1="88" x2="208" y2="88" stroke="var(--color-electron)" stroke-width="2.8" stroke-linecap="round"/>
+    <line x1="112" y1="98" x2="208" y2="98" stroke="var(--color-electron)" stroke-width="2.8" stroke-linecap="round"/>
+    <circle cx="110" cy="93" r="4" fill="var(--color-fg)"/>
+    <circle cx="210" cy="93" r="4" fill="var(--color-fg)"/>
+    <line x1="110" y1="93" x2="52" y2="40" stroke="var(--color-fg)" stroke-width="2.4" stroke-linecap="round"/>
+    <line x1="110" y1="93" x2="52" y2="146" stroke="var(--color-fg)" stroke-width="2.4" stroke-linecap="round"/>
+    <line x1="210" y1="93" x2="268" y2="${cis ? 40 : 146}" stroke="var(--color-fg)" stroke-width="2.4" stroke-linecap="round"/>
+    <line x1="210" y1="93" x2="268" y2="${cis ? 146 : 40}" stroke="var(--color-fg)" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="52" cy="40" r="3" fill="var(--color-fg)"/>
+    <circle cx="268" cy="${cis ? 40 : 146}" r="3" fill="var(--color-fg)"/>
+    <text x="28" y="36" fill="var(--color-electron)" font-size="13">CH₃</text>
+    <text x="36" y="158" fill="var(--color-muted)" font-size="13">H</text>
+    <text x="276" y="${cis ? 36 : 158}" fill="var(--color-electron)" font-size="13">CH₃</text>
+    <text x="280" y="${cis ? 158 : 36}" fill="var(--color-muted)" font-size="13">H</text>
+    <text x="160" y="182" text-anchor="middle" fill="var(--color-subtle)" font-size="12">${cis ? "cis · Z  ·  i due CH₃ dalla stessa parte" : "trans · E  ·  i due CH₃ opposti"}</text>
+  </svg>`;
+}
+
+function tetraSvg(face, mirror) {
+  const flip = mirror ? -1 : 1;
+  const cx = 140;
+  const cy = 96;
+  const cooh = { x: cx, y: 22 };
+  const ch3 = { x: cx + flip * 86, y: 154 };
+  const oh = { x: cx + flip * 92, y: 52 };
+  const h = { x: cx - flip * 90, y: 136 };
+  const isR = face === "R";
+  const wedge = isR ? oh : h;
+  const dash = isR ? h : oh;
+  const dashPts = Array.from({ length: 8 }, (_, i) => {
+    const t = i / 7;
+    const x = cx + (dash.x - cx) * t;
+    const y = cy + (dash.y - cy) * t;
+    const w = 0.5 + t * 6;
+    return `<line x1="${x}" y1="${y - w}" x2="${x}" y2="${y + w}" stroke="var(--color-fg)" stroke-width="1.35"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 280 186" class="mol-svg" role="img" aria-label="Acido lattico ${face}">
+    <line x1="${cx}" y1="${cy}" x2="${cooh.x}" y2="${cooh.y}" stroke="var(--color-fg)" stroke-width="2.3"/>
+    <line x1="${cx}" y1="${cy}" x2="${ch3.x}" y2="${ch3.y}" stroke="var(--color-fg)" stroke-width="2.3"/>
+    <polygon points="${cx},${cy} ${wedge.x - 8},${wedge.y} ${wedge.x + 8},${wedge.y}" fill="var(--color-electron)"/>
+    ${dashPts}
+    <circle cx="${cx}" cy="${cy}" r="12" fill="var(--color-elevated)" stroke="var(--color-warn)" stroke-width="1.8"/>
+    <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle" fill="var(--color-warn)" font-size="11" font-family="var(--font-mono)">C*</text>
+    <text x="${cooh.x}" y="${cooh.y - 6}" text-anchor="middle" fill="var(--color-fg)" font-size="13">COOH</text>
+    <text x="${ch3.x + flip * 10}" y="${ch3.y + 16}" text-anchor="middle" fill="var(--color-muted)" font-size="13">CH₃</text>
+    <text x="${oh.x + flip * 16}" y="${oh.y + 4}" fill="var(--color-electron)" font-size="14">OH</text>
+    <text x="${h.x - flip * 12}" y="${h.y + 4}" fill="var(--color-muted)" font-size="14">H</text>
+    <text x="140" y="182" text-anchor="middle" fill="var(--color-subtle)" font-size="11">${mirror ? "immagine speculare" : `configurazione ${face}`}</text>
+  </svg>`;
+}
+
+function polarimeter(face) {
+  const dir = face === "R" ? 32 : -32;
+  return `<svg viewBox="0 0 280 96" class="polarimeter" role="img" aria-label="Luce polarizzata">
+    <rect x="10" y="40" width="72" height="12" rx="2" fill="var(--color-valence)" opacity="0.9"/>
+    <text x="12" y="28" fill="var(--color-subtle)" font-size="9">polarizzatore</text>
+    <rect x="100" y="26" width="72" height="42" rx="8" fill="var(--color-elevated)" stroke="var(--color-border-strong)"/>
+    <text x="136" y="50" text-anchor="middle" fill="var(--color-fg)" font-size="12">${face}</text>
+    <g transform="translate(226 46) rotate(${dir})">
+      <rect x="-42" y="-3" width="84" height="6" rx="2" fill="var(--color-electron)"/>
+      <polygon points="42,0 30,-8 30,8" fill="var(--color-electron)"/>
+    </g>
+    <text x="176" y="88" fill="var(--color-subtle)" font-size="9">${face === "R" ? "destrogiro (+)" : "levogiro (−)"} · schema didattico (R/S ≠ segno ottico)</text>
+  </svg>`;
+}
+
 
 function parseRoute() {
   const hash = (location.hash || "").replace(/^#\/?/, "");
@@ -872,6 +1360,277 @@ function lessonBody(id) {
   if (id === "lewis") {
     return `<div class="stack"><p class="lede">Nitrato e nitrito: ottetto, cariche formali e risonanza. NO₂ neutro è il caso dispari.</p>${lewisBoard()}</div>`;
   }
+  if (id === "quantita") {
+    const spec = LAB_SPECIES.find((s) => s.id === state.labCmp) ?? LAB_SPECIES[0];
+    const M = formulaMass(spec.parts);
+    const mass = Number(state.labMass) || 0;
+    const vol = Math.max(0.01, Number(state.labVol) || 0.25);
+    const n = M > 0 ? mass / M : 0;
+    const N = n * NA;
+    const c = n / vol;
+    const fill = spec.id === "fe" ? "color-mix(in oklab, var(--color-core) 55%, transparent)" : "color-mix(in oklab, var(--color-electron) 45%, transparent)";
+    const partsLine = spec.parts.map(([sym, k]) => `${k > 1 ? k : ""}${sym}`).join(" + ");
+    return `<div class="stack">
+      <p class="lede">La mole è un conteggio. La bilancia legge grammi; M (g/mol) li converte in n. Poi n entra nel matraccio: c = n / V.</p>
+      <div class="chips">${LAB_SPECIES.map((s) => chip(s.id === spec.id, `labcmp:${s.id}`, s.formula)).join("")}</div>
+      <div class="split">
+        <div class="card lab-stage">
+          <p class="kicker">Banco · ${esc(spec.name)}</p>
+          ${beakerSvg(fill, spec.name, { level: Math.min(0.82, 0.25 + n * 0.12), bubbles: n > 0.4 })}
+          <div class="stats-3">
+            <div class="stat"><p class="kicker">M</p><p class="stat-v">${fmtMass(M)}</p><p class="muted">g/mol</p></div>
+            <div class="stat is-on"><p class="kicker">n</p><p class="stat-v">${n < 0.1 ? n.toFixed(3) : n.toFixed(2)}</p><p class="muted">mol</p></div>
+            <div class="stat"><p class="kicker">N</p><p class="stat-v tiny-stat">${fmtSci(N)}</p><p class="muted">entità</p></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <p class="kicker">Massa pesata</p>
+            <label class="range">
+              <span>${fmtMass(mass)} g · n = m / M</span>
+              <input type="range" min="0.5" max="${Math.max(40, Math.round(M * 4))}" step="0.5" value="${mass}" data-act="lab-mass" aria-label="Massa in grammi"/>
+            </label>
+            <p class="mono cfg-sm">${esc(partsLine)} → ${fmtMass(M)} g/mol</p>
+            <p class="lede">${esc(spec.hint)}</p>
+          </div>
+          <div class="card">
+            <p class="kicker">Matraccio · molarità</p>
+            <div class="lab-row">
+              ${flaskSvg(c, fill)}
+              <div>
+                <label class="range">
+                  <span>V = ${vol.toFixed(2)} L</span>
+                  <input type="range" min="0.05" max="2" step="0.05" value="${vol}" data-act="lab-vol" aria-label="Volume in litri"/>
+                </label>
+                <p class="display">${c >= 10 ? c.toFixed(1) : c.toFixed(2)} <span class="muted">mol/L</span></p>
+                <p class="muted tiny">c = n / V = ${n.toFixed(3)} / ${vol.toFixed(2)}</p>
+                <p class="muted tiny">Per diluire: c₁V₁ = c₂V₂. Il soluto (moli) resta, cambia solo V.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="props">
+        <div class="prop"><p class="kicker">n = m / M</p><p>Grammi → moli</p></div>
+        <div class="prop"><p class="kicker">N = n · NA</p><p>Moli → particelle</p></div>
+        <div class="prop"><p class="kicker">c = n / V</p><p>Moli → mol/L</p></div>
+        <div class="prop"><p class="kicker">NA</p><p>6,022×10²³ mol⁻¹</p></div>
+      </div>
+    </div>`;
+  }
+  if (id === "phlab") {
+    const pH = Number(state.phValue);
+    const h = hFromPh(pH);
+    const oh = 1e-14 / h;
+    const pOH = 14 - pH;
+    const css = phColorCss(pH);
+    const kind = pH < 3 ? "acido forte" : pH < 6.5 ? "acido" : pH <= 7.5 ? "neutro" : pH < 11 ? "basico" : "base forte";
+    const sample = PH_SAMPLES.reduce((best, s) => (Math.abs(s.pH - pH) < Math.abs(best.pH - pH) ? s : best), PH_SAMPLES[0]);
+    return `<div class="stack">
+      <p class="lede">pH = −log₁₀ [H₃O⁺]. Ogni unità è un fattore dieci. L’acqua pura a 25 °C sta a 7 perché Kw = 10⁻¹⁴. La cartina e il pHmetro raccontano la stessa [H⁺] in due linguaggi.</p>
+      <div class="split">
+        <div class="card lab-stage">
+          <p class="kicker">pHmetro · ${esc(kind)}</p>
+          <div class="ph-bench">
+            ${electrodeSvg(pH)}
+            ${beakerSvg(css, `soluzione pH ${pH.toFixed(1)}`, { level: 0.62, bubbles: pH < 2 || pH > 12 })}
+          </div>
+          <p class="ph-readout" style="color:${css}">${pH.toFixed(2)}</p>
+          ${stripSvg(pH)}
+        </div>
+        <div class="stack">
+          <div class="card">
+            <label class="range">
+              <span>pH = <b class="mono">${pH.toFixed(2)}</b></span>
+              <input type="range" min="0" max="14" step="0.1" value="${pH}" data-act="ph" aria-label="Valore di pH"/>
+            </label>
+            <div class="props two mt">
+              <div class="prop"><p class="kicker">[H₃O⁺]</p><p class="mono">${fmtSci(h)} M</p></div>
+              <div class="prop"><p class="kicker">[OH⁻]</p><p class="mono">${fmtSci(oh)} M</p></div>
+              <div class="prop"><p class="kicker">pOH</p><p class="mono">${pOH.toFixed(2)}</p></div>
+              <div class="prop"><p class="kicker">Kw</p><p class="mono">1,0×10⁻¹⁴</p></div>
+            </div>
+            <p class="lede mt">Vicino a: <b>${esc(sample.name)}</b> (${esc(sample.kind)}). Acido forte 0,10 M → pH 1; base forte 0,10 M → pH 13. Un acido debole della stessa c sta più in alto.</p>
+          </div>
+          <div class="chips">${PH_SAMPLES.map((s) => chip(Math.abs(s.pH - pH) < 0.15, `phset:${s.pH}`, s.name)).join("")}</div>
+        </div>
+      </div>
+      <ul class="teach">
+        <li>Acido forte: [H⁺] = c. HCl 0,010 M → pH 2,00 esatto.</li>
+        <li>Base forte: [OH⁻] = c, pH = 14 + log c. NaOH 0,010 M → pH 12,00.</li>
+        <li>Acido debole: [H⁺] ≈ √(Ka·c). L’aceto (~0,8 M CH₃COOH) sta intorno a pH 2,4, non a 0,1.</li>
+        <li>Il tampone del sangue tiene 7,35–7,45: una deriva di 0,4 unità è già patologia.</li>
+      </ul>
+    </div>`;
+  }
+  if (id === "isomeri") {
+    const info = describeIsomer({ skel: state.isoSkel, group: state.isoGroup, pos: state.isoPos });
+    const ch = ISOMER_CHALLENGES[state.isoChallenge] ?? ISOMER_CHALLENGES[0];
+    const ok = state.isoFeedback;
+    const pair = FUNCTIONAL_PAIRS.find((p) => p.id === state.funPair) ?? FUNCTIONAL_PAIRS[0];
+    const geo = info.name === "but-2-ene" ? state.geoIsomer : "cis";
+    return `<div class="stack">
+      <p class="lede">Isomeri costituzionali: stessa formula, atomi legati in un altro ordine. Tre leve — catena, posizione del gruppo, funzione. Tocca i carboni (1–4) per spostare OH, Cl o il doppio: la formula di struttura si ridisegna.</p>
+      <div class="card">
+        <div class="row-between wrap">
+          <div>
+            <p class="kicker">Banco di montaggio</p>
+            <h3>${esc(info.iupac)}</h3>
+            <p class="mono electron">${esc(info.formula)} · ${esc(info.line)}</p>
+            <p class="muted tiny">${esc(info.role)}</p>
+          </div>
+          <span class="badge">${esc(info.kind)}</span>
+        </div>
+        <div class="iso-stage mt">${skeletalSvg(state.isoSkel, state.isoGroup, state.isoPos, geo)}</div>
+        <p class="lede">${esc(info.vs)}</p>
+        <p class="tiny muted">Tocca un carbonio numerato per attaccare il gruppo. I numeri sono l’ordine di catena, non atomi “extra”.</p>
+        <div class="chips mt">
+          ${chip(state.isoSkel === "n", "iso-skel:n", "Catena lineare")}
+          ${chip(state.isoSkel === "iso", "iso-skel:iso", "Ramificata")}
+        </div>
+        <div class="chips">
+          ${[
+            ["h", "Solo C–H"],
+            ["oh", "–OH"],
+            ["cl", "–Cl"],
+            ["=", "C=C"],
+          ]
+            .map(([g, lab]) => chip(state.isoGroup === g, `iso-group:${g}`, lab))
+            .join("")}
+        </div>
+        ${
+          info.name === "but-2-ene"
+            ? `<div class="chips">${chip(state.geoIsomer === "cis", "geo:cis", "cis · Z")} ${chip(state.geoIsomer === "trans", "geo:trans", "trans · E")}<span class="tiny muted">Il π non ruota: cis e trans sono stereoisomeri, non costituzionali.</span></div>`
+            : ""
+        }
+        <p class="kicker mt">Famiglia · stessa formula, connettività diversa</p>
+        ${familyStrip(state.isoSkel, state.isoGroup, state.isoPos, geo)}
+      </div>
+      <div class="card challenge">
+        <p class="kicker">Prova ${state.isoChallenge + 1} / ${ISOMER_CHALLENGES.length}</p>
+        <h3>${esc(ch.prompt)}</h3>
+        <p class="lede">${esc(ch.hint)}</p>
+        <div class="row gap wrap">
+          <button type="button" class="btn sm" data-act="iso-check">Verifica</button>
+          <button type="button" class="btn btn-ghost sm" data-act="iso-next">Prova successiva</button>
+        </div>
+        ${
+          ok === "ok"
+            ? `<div class="note mt"><p><b>Esatto.</b></p><p class="muted">${esc(ch.explain)}</p></div>`
+            : ok === "bad"
+              ? `<div class="note mt"><p class="danger"><b>Non ancora.</b></p><p class="muted">${esc(ch.hint)} Ora hai ${esc(info.iupac)}.</p></div>`
+              : ""
+        }
+      </div>
+      <div class="card">
+        <p class="kicker">Isomeria funzionale</p>
+        <h3>${esc(pair.formula)}</h3>
+        <p class="lede">Stesso conteggio atomico, gruppi diversi. Le proprietà divergono di più che nella sola posizione.</p>
+        <div class="chips">${FUNCTIONAL_PAIRS.map((p) => chip(p.id === pair.id, `fun:${p.id}`, p.formula)).join("")}</div>
+        <div class="split mt">
+          <article class="card inner">
+            ${functionalSvg(pair.left.id)}
+            <p class="kicker">${esc(pair.left.group)}</p>
+            <h4>${esc(pair.left.name)}</h4>
+            <p class="muted tiny">p.eb. ${esc(pair.left.bp)}</p>
+            <p class="lede">${esc(pair.left.note)}</p>
+          </article>
+          <article class="card inner">
+            ${functionalSvg(pair.right.id)}
+            <p class="kicker">${esc(pair.right.group)}</p>
+            <h4>${esc(pair.right.name)}</h4>
+            <p class="muted tiny">p.eb. ${esc(pair.right.bp)}</p>
+            <p class="lede">${esc(pair.right.note)}</p>
+          </article>
+        </div>
+      </div>
+    </div>`;
+  }
+  if (id === "stereo") {
+    const mode = state.stereoMode;
+    const tabs = [
+      ["conform", "Conformazioni"],
+      ["geo", "Cis / trans"],
+      ["optical", "Enantiomeri"],
+    ];
+    let body = "";
+    if (mode === "conform") {
+      const ang = Number(state.newmanAngle);
+      const ecl = Math.min(...[0, 120, 240].map((k) => Math.abs(((ang - k + 180) % 360) - 180))) < 12;
+      const stag = Math.abs(((ang % 120) - 60)) < 12;
+      body = `<div class="split">
+        <div class="card center">
+          ${newmanSvg(ang)}
+          ${energyCurve(ang)}
+        </div>
+        <div>
+          <p class="lede">Si guarda lungo un C–C. Il carbonio anteriore è il punto, il posteriore il cerchio. Ruota l’angolo diedro ω.</p>
+          <label class="range">
+            <span>ω = ${Math.round(ang)}° · ${ecl ? "eclissato · massimo" : stag ? "sfalsato · minimo" : "intermedio"}</span>
+            <input type="range" min="0" max="360" step="1" value="${ang}" data-act="newman" aria-label="Angolo diedro"/>
+          </label>
+          <div class="chips">
+            ${chip(ecl, "newman-set:0", "Eclissato 0°")}
+            ${chip(stag && ang >= 50 && ang <= 70, "newman-set:60", "Sfalsato 60°")}
+            ${chip(Math.abs(ang - 180) < 8, "newman-set:180", "Anti 180°")}
+          </div>
+          <ul class="teach">
+            <li>Etano: barriera ≈ 12 kJ/mol. A 25 °C ruota miliardi di volte al secondo: i conformeri non si isolano.</li>
+            <li>Nel butano l’anti (180°) batte il gauche (±60°) di ~3,5 kJ/mol: i due metili si evitano.</li>
+            <li>Non sono isomeri isolabili. Diventano «configurazionali» solo se la rotazione è bloccata (doppio, anello).</li>
+          </ul>
+        </div>
+      </div>`;
+    } else if (mode === "geo") {
+      body = `<div class="split">
+        <div class="card center">${buteneSvg(state.geoIsomer)}</div>
+        <div>
+          <p class="lede">Il π vieta la rotazione intorno al C=C. Se ciascun carbonio sp² ha due sostituenti diversi, esistono due configurazioni.</p>
+          <div class="chips">${chip(state.geoIsomer === "cis", "geo:cis", "cis · Z")} ${chip(state.geoIsomer === "trans", "geo:trans", "trans · E")}</div>
+          <ul class="teach">
+            <li>Cis: i due CH₃ dalla stessa parte. Più ingombro, di solito meno stabile, p.eb. un po’ più alto.</li>
+            <li>Trans: CH₃ opposti. È l’isomero prevalente all’equilibrio.</li>
+            <li>Il but-1-ene non ha cis/trans: il CH₂ ha due idrogeni identici. Serve un C=C «interno» con quattro gruppi non tutti uguali a coppie.</li>
+            <li>E/Z usa le priorità CIP, non l’uguaglianza dei gruppi. Su but-2-ene coincidono con cis/trans.</li>
+          </ul>
+        </div>
+      </div>`;
+    } else {
+      body = `<div class="stack">
+        <div class="split">
+          <div class="card center">
+            <p class="kicker">${state.opticalFace === "R" ? "Enantiomero R" : "Enantiomero S"}</p>
+            ${tetraSvg(state.opticalFace, false)}
+          </div>
+          ${
+            state.showMirror
+              ? `<div class="card center">
+                  <p class="kicker">Immagine speculare</p>
+                  ${tetraSvg(state.opticalFace === "R" ? "S" : "R", true)}
+                </div>`
+              : `<div class="card"><p class="lede">Nascondi lo specchio e prova a sovrapporre ruotando: non si può, senza spezzare un legame.</p></div>`
+          }
+        </div>
+        ${polarimeter(state.opticalFace)}
+        <div class="chips">
+          ${chip(state.opticalFace === "R", "opt:R", "R")}
+          ${chip(state.opticalFace === "S", "opt:S", "S")}
+          ${chip(state.showMirror, "opt-mirror", state.showMirror ? "Specchio on" : "Specchio off")}
+        </div>
+        <ul class="teach">
+          <li>Acido lattico: C* con COOH, OH, CH₃, H — quattro sostituenti diversi → due enantiomeri.</li>
+          <li>CIP: priorità OH > COOH > CH₃ > H. H lontano: giro 1→2→3 orario = R.</li>
+          <li>Stesso p.f., stesso p.eb., stessa solubilità. Differiscono per il verso in cui ruotano la luce polarizzata e per i recettori chirali (naso, enzimi).</li>
+          <li>1:1 R+S = racemo, [α] = 0. I diastereoisomeri (cis/trans, o RR vs RS) non sono speculari e si separano più facilmente.</li>
+        </ul>
+      </div>`;
+    }
+    return `<div class="stack">
+      <p class="lede">Stereoisomeri: stessa connettività, spazio diverso. Conformazioni (rotazione del singolo), geometria sul doppio, enantiomeri su un tetraedro.</p>
+      <div class="chips">${tabs.map(([k, lab]) => chip(mode === k, `stereo:${k}`, lab)).join("")}</div>
+      ${body}
+    </div>`;
+  }
   return "";
 }
 
@@ -882,7 +1641,7 @@ function viewLab() {
       <div>
         <p class="kicker">Laboratorio</p>
         <h1>Basi della chimica</h1>
-        <p class="lede">Dall’atomo alle forze tra molecole, poi orbitali e Lewis.</p>
+        <p class="lede">Dall’atomo alle forze tra molecole, poi orbitali, Lewis, il banco di laboratorio e l’isomeria.</p>
       </div>
     </header>
     <nav class="sticky-chips">${LESSONS.map((l) => `<button type="button" class="chip${l.id === chapter.id ? " is-on" : ""}" data-act="lesson:${l.id}"><span class="mono tiny">${l.n}</span> ${esc(l.title)}</button>`).join("")}</nav>
@@ -988,7 +1747,7 @@ function viewStudio() {
       ? GLOSSARY.filter((t) => t.term.toLowerCase().includes(s) || t.body.toLowerCase().includes(s) || t.group.toLowerCase().includes(s))
       : GLOSSARY;
     const groups = [...new Set(items.map((t) => t.group))];
-    body = `<header class="page-head"><div><p class="kicker">Lessico</p><h2>Glossario</h2><p class="lede">Le regole e le grandezze che servono per leggere una configurazione senza indovinare.</p></div></header>
+    body = `<header class="page-head"><div><p class="kicker">Lessico</p><h2>Glossario</h2><p class="lede">Regole, grandezze di laboratorio e isomeria: il lessico per leggere una struttura senza indovinare.</p></div></header>
       <label class="search max"><span class="sr">Cerca nel glossario</span><input type="search" value="${esc(state.glossQ)}" data-act="gloss" placeholder="Cerca un termine" aria-label="Cerca nel glossario"/></label>
       ${groups
         .map(
@@ -1216,6 +1975,88 @@ function onAct(act, el, ev) {
     render();
     return;
   }
+  if (act.startsWith("labcmp:")) {
+    state.labCmp = act.slice(7);
+    const spec = LAB_SPECIES.find((s) => s.id === state.labCmp);
+    if (spec) state.labMass = Math.round(formulaMass(spec.parts) * 10) / 10;
+    render();
+    return;
+  }
+  if (act.startsWith("phset:")) {
+    state.phValue = Number(act.slice(6));
+    render();
+    return;
+  }
+  if (act.startsWith("iso-skel:")) {
+    state.isoSkel = act.slice(9);
+    state.isoFeedback = null;
+    render();
+    return;
+  }
+  if (act.startsWith("iso-group:")) {
+    state.isoGroup = act.slice(10);
+    state.isoFeedback = null;
+    render();
+    return;
+  }
+  if (act.startsWith("iso-pos:")) {
+    state.isoPos = Number(act.slice(8));
+    state.isoFeedback = null;
+    render();
+    return;
+  }
+  if (act.startsWith("iso-set:")) {
+    const [, skel, group, pos, geo] = act.split(":");
+    state.isoSkel = skel;
+    state.isoGroup = group;
+    state.isoPos = Number(pos);
+    if (geo === "cis" || geo === "trans") state.geoIsomer = geo;
+    state.isoFeedback = null;
+    render();
+    return;
+  }
+  if (act === "iso-check") {
+    const ch = ISOMER_CHALLENGES[state.isoChallenge];
+    state.isoFeedback = ch && isomerMatches({ skel: state.isoSkel, group: state.isoGroup, pos: state.isoPos }, ch.check) ? "ok" : "bad";
+    render();
+    return;
+  }
+  if (act === "iso-next") {
+    state.isoChallenge = (state.isoChallenge + 1) % ISOMER_CHALLENGES.length;
+    state.isoFeedback = null;
+    render();
+    return;
+  }
+  if (act.startsWith("fun:")) {
+    state.funPair = act.slice(4);
+    render();
+    return;
+  }
+  if (act.startsWith("stereo:")) {
+    state.stereoMode = act.slice(7);
+    render();
+    return;
+  }
+  if (act.startsWith("geo:")) {
+    state.geoIsomer = act.slice(4);
+    render();
+    return;
+  }
+  if (act.startsWith("newman-set:")) {
+    state.newmanAngle = Number(act.slice(11));
+    render();
+    return;
+  }
+  if (act === "opt-mirror") {
+    state.showMirror = !state.showMirror;
+    render();
+    return;
+  }
+  if (act.startsWith("opt:")) {
+    state.opticalFace = act.slice(4);
+    render();
+    return;
+  }
   if (act === "hide-install") {
     state.installHide = true;
     localStorage.setItem("electronhub-install-dismissed", "1");
@@ -1268,6 +2109,18 @@ function bind() {
     } else if (act === "gloss") {
       state.glossQ = el.value;
       renderKeepFocus(el);
+    } else if (act === "lab-mass") {
+      state.labMass = Number(el.value);
+      renderKeepFocus(el);
+    } else if (act === "lab-vol") {
+      state.labVol = Number(el.value);
+      renderKeepFocus(el);
+    } else if (act === "ph") {
+      state.phValue = Number(el.value);
+      renderKeepFocus(el);
+    } else if (act === "newman") {
+      state.newmanAngle = Number(el.value);
+      renderKeepFocus(el);
     } else if (act === "cmpq:A" || act === "cmpq:B") {
       const key = act.endsWith("A") ? "A" : "B";
       const q = el.value;
@@ -1312,6 +2165,7 @@ function renderKeepFocus(el) {
 }
 
 function detectInstall() {
+  if (typeof navigator === "undefined") return;
   const ua = navigator.userAgent;
   state.ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   state.standalone =
@@ -1324,37 +2178,27 @@ function detectInstall() {
   });
 }
 
-function boot() {
-  if (window.__EH_BOOTED) return;
-  window.__EH_BOOTED = true;
-  root = document.getElementById("app");
-  if (!root) {
-    root = document.createElement("div");
-    root.id = "app";
-    document.body.prepend(root);
-  }
+export function mountElectronHub(el) {
+  if (!el) return;
+  root = el;
   applyRoute(parseRoute());
   if (state.view === "studio" && state.studio === "quiz") ensureQuiz();
-  detectInstall();
-  bind();
+  if (!el.dataset.ehBound) {
+    el.dataset.ehBound = "1";
+    bind();
+  }
+  if (!window.__EH_HASH) {
+    window.__EH_HASH = true;
+    detectInstall();
+    window.addEventListener("hashchange", () => {
+      applyRoute(parseRoute());
+      window.scrollTo(0, 0);
+      render();
+    });
+  }
   render();
-  window.addEventListener("hashchange", () => {
-    applyRoute(parseRoute());
-    window.scrollTo(0, 0);
-    render();
-  });
   if (!location.hash) {
     const r = parseRoute();
     if (r.view !== "tavola" || r.symbol || r.lesson || r.studio) setHashFromState();
   }
-  if ("serviceWorker" in navigator && !["localhost", "127.0.0.1"].includes(location.hostname) === false) {
-    /* register in production only: hostname check inverted below */
-  }
-  const isLocal = /localhost|127\.0\.0\.1/.test(location.hostname);
-  if ("serviceWorker" in navigator && !isLocal) {
-    navigator.serviceWorker.register("./sw.js").catch(() => undefined);
-  }
 }
-
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
-else boot();
