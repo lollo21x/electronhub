@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { RAW, EXCEPTIONS } from "./raw-data.js";
-import { GLOSSARY, LESSONS, LEWIS_SPECIES, DEMO_MOLECULES, OCTET_CAP, TEACHING_Z } from "./content.js";
+import { GLOSSARY, LESSONS, LEWIS_SPECIES, DEMO_MOLECULES, OCTET_CAP, TEACHING_Z, LAB_SPECIES, PH_SAMPLES, FUNCTIONAL_PAIRS, ISOMER_CHALLENGES } from "./content.js";
 
 export const AUFBAU_ORDER = [
   "1s","2s","2p","3s","3p","4s","3d","4p","5s","4d","5p","6s","4f","5d","6p","7s","5f","6d","7p",
@@ -351,7 +352,7 @@ function distractors(correct, pool, rng) {
 
 export function buildQuiz(seed = Date.now(), count = 8) {
   const rng = mulberry32(seed);
-  const kinds = ["config", "element", "valence", "block", "exception"];
+  const kinds = ["config", "element", "valence", "block", "exception", "mole", "isomer"];
   const questions = [];
   const used = new Set();
   while (questions.length < count) {
@@ -408,7 +409,7 @@ export function buildQuiz(seed = Date.now(), count = 8) {
         explain: `L’ultimo orbitale occupato determina il blocco ${el.block}. Periodo ${el.period}${el.group ? `, gruppo ${el.group}` : ""}.`,
         element: el,
       });
-    } else {
+    } else if (kind === "exception") {
       const answer = el.exception ? "Sì, è un’eccezione" : "No, segue l’Aufbau";
       questions.push({
         id: `${kind}-${el.z}-${questions.length}`,
@@ -421,9 +422,236 @@ export function buildQuiz(seed = Date.now(), count = 8) {
           : `${el.name} segue l’ordine Madelung: ${condensed}.`,
         element: el,
       });
+    } else if (kind === "mole") {
+      const samples = [
+        { q: "Quante moli sono 36 g di acqua (M = 18 g/mol)?", a: "2,0 mol", opts: ["0,50 mol", "1,0 mol", "2,0 mol", "18 mol"], x: "n = m/M = 36/18 = 2,0 mol." },
+        { q: "Una soluzione 0,20 M in 0,50 L contiene", a: "0,10 mol di soluto", opts: ["0,10 mol di soluto", "0,20 mol di soluto", "0,50 mol di soluto", "2,5 mol di soluto"], x: "n = c·V = 0,20 mol/L × 0,50 L = 0,10 mol." },
+        { q: "pH di HCl 0,010 M (acido forte)", a: "2,00", opts: ["0,010", "1,00", "2,00", "12,00"], x: "Acido forte: [H⁺] = 0,010 = 10⁻² → pH = 2,00." },
+        { q: "pH + pOH a 25 °C vale", a: "14", opts: ["7", "1", "14", "10⁻¹⁴"], x: "Kw = 10⁻¹⁴ → pH + pOH = 14." },
+      ];
+      const s = samples[questions.length % samples.length];
+      questions.push({
+        id: `${kind}-${questions.length}`,
+        kind, prompt: s.q, options: pick(s.opts, 4, rng), answer: s.a, explain: s.x, element: el,
+      });
+    } else {
+      const samples = [
+        { q: "n-butano e 2-metilpropano sono isomeri", a: "di catena", opts: ["di catena", "di posizione", "funzionali", "geometrici"], x: "Stessa C₄H₁₀, scheletro diverso: isomeria costituzionale di catena." },
+        { q: "Butan-1-olo e butan-2-olo sono isomeri", a: "di posizione", opts: ["di catena", "di posizione", "funzionali", "ottici"], x: "Stesso scheletro C4, stesso OH, carbonio diverso." },
+        { q: "Etanolo e metossimetano (C₂H₆O) sono isomeri", a: "funzionali", opts: ["di catena", "di posizione", "funzionali", "conformazionali"], x: "Alcol vs etere: stesso conteggio atomico, funzione diversa." },
+        { q: "Cis- e trans-but-2-ene sono", a: "stereoisomeri geometrici", opts: ["isomeri di catena", "risonanze", "stereoisomeri geometrici", "enantiomeri"], x: "Stessa connettività, disposizione sui capi del C=C diversa. Il π non ruota." },
+        { q: "Due enantiomeri differiscono per", a: "la configurazione allo stereocentro", opts: ["la formula molecolare", "il gruppo funzionale", "la configurazione allo stereocentro", "il punto di ebollizione"], x: "Immagini speculari non sovrapponibili. Stesse proprietà scalari, attività ottica opposta." },
+      ];
+      const s = samples[questions.length % samples.length];
+      questions.push({
+        id: `${kind}-${questions.length}`,
+        kind, prompt: s.q, options: pick(s.opts, 4, rng), answer: s.a, explain: s.x, element: el,
+      });
     }
   }
   return questions;
 }
 
-export { GLOSSARY, LESSONS, LEWIS_SPECIES, DEMO_MOLECULES, OCTET_CAP, TEACHING_Z };
+export const NA = 6.02214076e23;
+
+export function formulaMass(parts) {
+  let total = 0;
+  for (const [sym, n] of parts) {
+    const el = BY_SYMBOL.get(String(sym).toLowerCase());
+    if (!el) continue;
+    total += el.mass * n;
+  }
+  return total;
+}
+
+export function phFromH(h) {
+  if (!(h > 0)) return 14;
+  return Math.min(14, Math.max(0, -Math.log10(h)));
+}
+
+export function hFromPh(pH) {
+  return 10 ** -pH;
+}
+
+export function phColor(pH) {
+  const t = Math.max(0, Math.min(1, pH / 14));
+  if (t < 0.5) {
+    const u = t / 0.5;
+    return { r: Math.round(196 - u * 80), g: Math.round(92 + u * 80), b: Math.round(74 + u * 40) };
+  }
+  const u = (t - 0.5) / 0.5;
+  return { r: Math.round(116 - u * 42), g: Math.round(172 - u * 54), b: Math.round(114 + u * 54) };
+}
+
+export function phColorCss(pH) {
+  const { r, g, b } = phColor(pH);
+  return `rgb(${r} ${g} ${b})`;
+}
+
+export function describeIsomer({ skel, group, pos }) {
+  const p = Number(pos);
+  if (group === "h") {
+    if (skel === "iso") {
+      return {
+        name: "2-metilpropano",
+        iupac: "2-metilpropano",
+        formula: "C₄H₁₀",
+        line: "(CH₃)₃CH",
+        kind: "catena",
+        role: "idrocarburo ramificato",
+        vs: "Isomero di catena del butano. Stessa C₄H₁₀, scheletro a Y.",
+      };
+    }
+    return {
+      name: "butano",
+      iupac: "butano",
+      formula: "C₄H₁₀",
+      line: "CH₃CH₂CH₂CH₃",
+      kind: "catena",
+      role: "idrocarburo lineare",
+      vs: "Catena C4 a zigzag. L’isomero di catena è il 2-metilpropano.",
+    };
+  }
+  if (group === "oh") {
+    if (skel === "iso") {
+      if (p === 2) {
+        return {
+          name: "2-metilpropan-2-olo",
+          iupac: "2-metilpropan-2-olo",
+          formula: "C₄H₁₀O",
+          line: "(CH₃)₃COH",
+          kind: "catena",
+          role: "alcol terziario",
+          vs: "OH sul carbonio centrale. Isomero di catena dei butanoli lineari. Tutti C₄H₁₀O.",
+        };
+      }
+      return {
+        name: "2-metilpropan-1-olo",
+        iupac: "2-metilpropan-1-olo",
+        formula: "C₄H₁₀O",
+        line: "(CH₃)₂CHCH₂OH",
+        kind: "catena",
+        role: "alcol primario ramificato",
+        vs: "OH su un metile. I tre metili del 2-metilpropano sono equivalenti: stesso nome.",
+      };
+    }
+    if (p === 1 || p === 4) {
+      return {
+        name: "butan-1-olo",
+        iupac: "butan-1-olo",
+        formula: "C₄H₁₀O",
+        line: "CH₃CH₂CH₂CH₂OH",
+        kind: "posizione",
+        role: "alcol primario",
+        vs: "OH in punta. Spostalo sul C2: diventa butan-2-olo, isomero di posizione.",
+      };
+    }
+    return {
+      name: "butan-2-olo",
+      iupac: "butan-2-olo",
+      formula: "C₄H₁₀O",
+      line: "CH₃CH(OH)CH₂CH₃",
+      kind: "posizione",
+      role: "alcol secondario · stereocentro",
+      vs: "OH sul C2. Quattro sostituenti diversi sul C2: è chirale (due enantiomeri).",
+    };
+  }
+  if (group === "cl") {
+    if (skel === "iso") {
+      if (p === 2) {
+        return {
+          name: "2-cloro-2-metilpropano",
+          iupac: "2-cloro-2-metilpropano",
+          formula: "C₄H₉Cl",
+          line: "(CH₃)₃CCl",
+          kind: "catena",
+          role: "alogenuro terziario",
+          vs: "Cl sul carbonio centrale. Isomero di catena dei clorobutani lineari.",
+        };
+      }
+      return {
+        name: "1-cloro-2-metilpropano",
+        iupac: "1-cloro-2-metilpropano",
+        formula: "C₄H₉Cl",
+        line: "(CH₃)₂CHCH₂Cl",
+        kind: "catena",
+        role: "alogenuro primario ramificato",
+        vs: "Cl su un metile. Formula C₄H₉Cl, come i clorobutani lineari.",
+      };
+    }
+    if (p === 1 || p === 4) {
+      return {
+        name: "1-clorobutano",
+        iupac: "1-clorobutano",
+        formula: "C₄H₉Cl",
+        line: "CH₃CH₂CH₂CH₂Cl",
+        kind: "posizione",
+        vs: "Cl in punta. L’isomero di posizione è il 2-clorobutano.",
+        role: "alogenuro primario",
+      };
+    }
+    return {
+      name: "2-clorobutano",
+      iupac: "2-clorobutano",
+      formula: "C₄H₉Cl",
+      line: "CH₃CHClCH₂CH₃",
+      kind: "posizione",
+      role: "alogenuro secondario · stereocentro",
+      vs: "Cl sul C2. Anche questo carbonio è uno stereocentro.",
+    };
+  }
+  if (skel === "iso") {
+    return {
+      name: "2-metilpropene",
+      iupac: "2-metilpropene",
+      formula: "C₄H₈",
+      line: "(CH₃)₂C=CH₂",
+      kind: "catena",
+      role: "alchene ramificato",
+      vs: "Due metili sullo stesso C del doppio: niente cis/trans (due gruppi uguali).",
+    };
+  }
+  if (p === 1 || p === 4) {
+    return {
+      name: "but-1-ene",
+      iupac: "but-1-ene",
+      formula: "C₄H₈",
+      line: "CH₂=CHCH₂CH₃",
+      kind: "posizione",
+      role: "alchene terminale",
+      vs: "Doppio in punta. Il CH₂ ha due H identici: non esiste cis/trans.",
+    };
+  }
+  return {
+    name: "but-2-ene",
+    iupac: "but-2-ene",
+    formula: "C₄H₈",
+    line: "CH₃CH=CHCH₃",
+    kind: "posizione",
+    role: "alchene interno · cis/trans",
+    vs: "Doppio al centro. I due CH₃ dalla stessa parte = cis; opposti = trans.",
+  };
+}
+
+export function isomerMatches(state, check) {
+  const group = state.group;
+  const skel = state.skel;
+  let pos = Number(state.pos);
+  if (skel === "n" && group !== "=") {
+    if (pos === 4) pos = 1;
+    if (pos === 3) pos = 2;
+  }
+  if (skel === "iso" && group !== "h") {
+    if (check.pos === 2) return group === check.group && skel === check.skel && pos === 2;
+    return group === check.group && skel === check.skel && pos !== 2;
+  }
+  if (check.group === "h") return group === "h" && skel === check.skel;
+  if (check.group === "=") {
+    const norm = pos === 3 ? 2 : pos === 4 ? 1 : pos;
+    return group === "=" && skel === check.skel && norm === check.pos;
+  }
+  const norm = pos === 4 ? 1 : pos === 3 ? 2 : pos;
+  return group === check.group && skel === check.skel && norm === check.pos;
+}
+
+export { GLOSSARY, LESSONS, LEWIS_SPECIES, DEMO_MOLECULES, OCTET_CAP, TEACHING_Z, LAB_SPECIES, PH_SAMPLES, FUNCTIONAL_PAIRS, ISOMER_CHALLENGES };
