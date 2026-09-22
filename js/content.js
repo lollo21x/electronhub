@@ -1,3 +1,4 @@
+// @ts-nocheck
 export const GLOSSARY = [
   {
     id: "aufbau",
@@ -257,6 +258,156 @@ export const GLOSSARY = [
     group: "Legami",
     body: "17 e⁻: radicale con ottetto incompleto su N. Bruno, paramagnetico, dimerizza a N₂O₄. Eccezione istruttiva all’ottetto.",
   },
+  {
+    id: "mole",
+    term: "Mole",
+    group: "Laboratorio",
+    body: "Unità SI della quantità di sostanza. 1 mol contiene NA = 6,022×10²³ entità (atomi, molecole, ioni). Relazione madre: n = m / M = N / NA = c · V. La mole non è una massa: è un conteggio, come una «dozzina» enorme.",
+  },
+  {
+    id: "molar-mass",
+    term: "Massa molare M",
+    group: "Laboratorio",
+    body: "Massa di una mole di sostanza, in g/mol. Numericamente coincide con la massa formula in u. Si ottiene sommando le masse atomiche: H₂O = 2×1,008 + 15,999 = 18,015 g/mol. Ponte tra bilancia (grammi) e conteggio (moli).",
+  },
+  {
+    id: "avogadro",
+    term: "Costante di Avogadro NA",
+    group: "Laboratorio",
+    body: "NA = 6,02214076×10²³ mol⁻¹, esatta per definizione SI. N = n · NA. Un bicchiere d’acqua (~10 mol) contiene ~6×10²⁴ molecole: per questo in lab si pesa, non si contano gli atomi.",
+  },
+  {
+    id: "concentration",
+    term: "Concentrazione molare (molarità)",
+    group: "Laboratorio",
+    body: "c = n / V, in mol/L (simbolo M). V è il volume della soluzione, non del solvente puro. Una soluzione 0,100 M di NaCl contiene 0,100 mol (5,844 g) in 1,00 L. Diluizione: c₁V₁ = c₂V₂.",
+  },
+  {
+    id: "molality",
+    term: "Molalità, % e ppm",
+    group: "Laboratorio",
+    body: "Molalità b = n(soluto) / kg(solvente): indipendente dalla T. Percento in massa: g soluto / 100 g soluzione. ppm = mg/kg. In chimica generale la molarità è lo standard per titolazioni e pH.",
+  },
+  {
+    id: "solution",
+    term: "Soluzione, soluto, solvente",
+    group: "Laboratorio",
+    body: "Miscela omogenea. Il solvente è il componente in eccesso (di solito H₂O); il soluto è ciò che si dissolve. Preparazione: si pesa il soluto, si porta a volume in un matraccio tarato — non si aggiunge il volume d’acqua a parte, perché i volumi non sono additivi.",
+  },
+  {
+    id: "ph",
+    term: "pH",
+    group: "Laboratorio",
+    body: "pH = −log₁₀ a(H₃O⁺) ≈ −log₁₀ [H₃O⁺] (in mol/L, soluzioni diluite). Scala 0–14 a 25 °C. Acido < 7, neutro = 7, basico > 7. Ogni unità di pH è un fattore 10 sulla [H⁺]. pOH = −log[OH⁻]; pH + pOH = 14 (Kw = 1,0×10⁻¹⁴).",
+  },
+  {
+    id: "kw",
+    term: "Prodotto ionico dell’acqua Kw",
+    group: "Laboratorio",
+    body: "H₂O ⇌ H₃O⁺ + OH⁻. Kw = [H₃O⁺][OH⁻] = 1,0×10⁻¹⁴ a 25 °C. In acqua pura [H⁺] = [OH⁻] = 1,0×10⁻⁷ → pH 7. Kw cresce con T: a 50 °C l’acqua pura ha pH < 7 ma resta neutra ([H⁺]=[OH⁻]).",
+  },
+  {
+    id: "strong-acid",
+    term: "Acidi e basi forti / deboli",
+    group: "Laboratorio",
+    body: "Forti: dissociazione completa. HCl, HNO₃, H₂SO₄ (1ª), NaOH, KOH. [H⁺] = c dell’acido forte. Deboli: equilibrio. CH₃COOH (Ka ≈ 1,8×10⁻⁵), NH₃. Per un acido debole [H⁺] ≈ √(Ka·c), pH più alto di quello «da concentrazione nominale».",
+  },
+  {
+    id: "indicator",
+    term: "Indicatori e cartina universale",
+    group: "Laboratorio",
+    body: "Coloranti il cui equilibrio acido-base cambia tintura in un intervallo di pH. La cartina universale mescola più indicatori: rosso (acido forte) → arancio → giallo → verde (neutro) → blu (basico). Il pHmetro misura un potenziale di elettrodo di vetro, più preciso.",
+  },
+  {
+    id: "stoich",
+    term: "Stechiometria in soluzione",
+    group: "Laboratorio",
+    body: "Le moli collegano la bilancia alla buretta: n = m/M = cV. In una titolazione HCl + NaOH, n(H⁺) = n(OH⁻) al punto equivalente. Sempre convertire in moli prima di confrontare i coefficienti della reazione.",
+  },
+  {
+    id: "isomer",
+    term: "Isomeri",
+    group: "Isomeria",
+    body: "Composti con la stessa formula molecolare ma struttura diversa, quindi proprietà diverse. Due famiglie: isomeri costituzionali (connettività diversa) e stereoisomeri (stessa connettività, disposizione spaziale diversa). Non sono risonanze: le risonanze sono lo stesso ibrido, gli isomeri sono sostanze distinte.",
+  },
+  {
+    id: "constitutional",
+    term: "Isomeria costituzionale (di struttura)",
+    group: "Isomeria",
+    body: "Stessa formula, atomi legati in ordine diverso. Tre tipi didattici: di catena (scheletro carbonioso), di posizione (stesso gruppo in un altro carbonio), funzionale (gruppi funzionali diversi). Esempio: C₄H₁₀ è butano o 2-metilpropano.",
+  },
+  {
+    id: "chain-iso",
+    term: "Isomeria di catena",
+    group: "Isomeria",
+    body: "Cambia solo lo scheletro: lineare contro ramificato. n-butano (p.eb. −0,5 °C) e isobutano / 2-metilpropano (p.eb. −11,7 °C) sono C₄H₁₀. Più ramificazioni → di solito punto di ebollizione più basso (superficie di contatto minore, London più deboli).",
+  },
+  {
+    id: "position-iso",
+    term: "Isomeria di posizione",
+    group: "Isomeria",
+    body: "Stesso scheletro e stesso gruppo funzionale, ma il gruppo (o il doppio) sta su un carbonio diverso. Butan-1-olo vs butan-2-olo; 1-clorobutano vs 2-clorobutano; but-1-ene vs but-2-ene. La formula è identica, la reattività no.",
+  },
+  {
+    id: "functional-iso",
+    term: "Isomeria funzionale",
+    group: "Isomeria",
+    body: "Stessa formula, gruppi funzionali diversi. C₂H₆O: etanolo (alcol, p.eb. 78 °C, H-bond) vs metossimetano (etere, p.eb. −24 °C, solo London). C₃H₆O: propanale (aldeide) vs propanone (chetone). È il caso in cui le proprietà divergono di più.",
+  },
+  {
+    id: "stereo",
+    term: "Stereoisomeri",
+    group: "Isomeria",
+    body: "Stessa connettività, geometria diversa. Conformazionali: si interconvertono ruotando un singolo (etano eclissato/sfalsato). Configurazionali: per interconvertirli bisogna rompere un legame — isomeri geometrici (cis/trans, E/Z) e ottici (enantiomeri).",
+  },
+  {
+    id: "conformer",
+    term: "Isomeri conformazionali",
+    group: "Isomeria",
+    body: "Rotameri intorno a un C–C singolo. Nell’etano lo sfalsato (staggered, 60°) è un minimo, l’eclissato (0°) un massimo (~12 kJ/mol). Nel butano: anti (180°, più stabile) e gauche (±60°). A T ambiente ruotano in continuazione: non si isolano, ma l’energia conta.",
+  },
+  {
+    id: "newman",
+    term: "Proiezione di Newman",
+    group: "Isomeria",
+    body: "Si guarda lungo un legame C–C: il carbonio anteriore è un punto con tre legami, il posteriore un cerchio con tre legami. L’angolo diedro ω misura la rotazione. È il disegno standard per confrontare eclissato, sfalsato, anti e gauche.",
+  },
+  {
+    id: "configurational",
+    term: "Isomeri configurazionali",
+    group: "Isomeria",
+    body: "Stereoisomeri che non si interconvertono per rotazione di un singolo. Due sottofamiglie: geometrici (cis/trans su C=C o ciclo) e ottici (enantiomeri su un stereocentro). Per passarvi da uno all’altro si rompe un σ o un π.",
+  },
+  {
+    id: "geometric",
+    term: "Isomeria geometrica (cis/trans, E/Z)",
+    group: "Isomeria",
+    body: "Il doppio C=C non ruota (il π si romperebbe). Se ogni carbonio sp² ha due sostituenti diversi, esistono due isomeri: cis (Z, gruppi uguali/prioritari dalla stessa parte) e trans (E, opposti). Il but-2-ene ha cis e trans; il but-1-ene no. Il trans è di solito più stabile (meno ingombro).",
+  },
+  {
+    id: "enantiomer",
+    term: "Enantiomeri (isomeri ottici)",
+    group: "Isomeria",
+    body: "Immagini speculari non sovrapponibili, come le mani. Condizione: stereocentro — di solito un C con quattro sostituenti diversi (C*). Stesse proprietà fisiche, ruotano il piano della luce polarizzata in versi opposti (+/−). Un 1:1 è il racemo, otticamente inattivo.",
+  },
+  {
+    id: "chiral",
+    term: "Chiralità e stereocentro",
+    group: "Isomeria",
+    body: "Una molecola è chirale se non è sovrapponibile alla sua immagine speculare (niente piano o centro di simmetria). Il carbonio tetraedrico CABCD è il caso più comune. L’acido lattico (CH₃C*HOHCOOH) ha due enantiomeri; un C con due H no.",
+  },
+  {
+    id: "rs",
+    term: "Configurazione R e S",
+    group: "Isomeria",
+    body: "Regole CIP: si assegnano priorità per Z atomico ai quattro sostituenti, si mette il meno prioritario (spesso H) lontano, e si legge 1→2→3. Orario = R (rectus), antiorario = S (sinister). R/S è una etichetta, non coincide automaticamente con +/− ottico.",
+  },
+  {
+    id: "diastereomer",
+    term: "Diastereoisomeri",
+    group: "Isomeria",
+    body: "Stereoisomeri che non sono enantiomeri. Cis e trans del but-2-ene lo sono. Con due stereocentri: RS e SR sono una coppia di enantiomeri; RR e RS sono diastereoisomeri (proprietà diverse, si separano più facilmente).",
+  },
 ];
 
 export const LESSONS = [
@@ -322,6 +473,34 @@ export const LESSONS = [
     title: "Lewis e risonanza",
     kicker: "NO₃⁻ e NO₂⁻",
     summary: "Conteggio degli elettroni, ottetto, cariche formali e ibridi di risonanza degli ioni dell’azoto.",
+  },
+  {
+    id: "quantita",
+    n: 10,
+    title: "Moli e soluzioni",
+    kicker: "Il banco di lab",
+    summary: "Mole, massa molare, concentrazione. Dalla bilancia al matraccio: n = m/M = c·V.",
+  },
+  {
+    id: "phlab",
+    n: 11,
+    title: "pH in laboratorio",
+    kicker: "Acidi e basi",
+    summary: "pH = −log[H₃O⁺], Kw, indicatori e pHmetro. Si vede il colore cambiare con la concentrazione.",
+  },
+  {
+    id: "isomeri",
+    n: 12,
+    title: "Isomeria di struttura",
+    kicker: "Catena, posizione, funzione",
+    summary: "Stessa formula, connettività diversa. Monta la molecola e sposta il gruppo funzionale.",
+  },
+  {
+    id: "stereo",
+    n: 13,
+    title: "Stereoisomeri",
+    kicker: "Spazio e specchio",
+    summary: "Conformazioni (Newman), cis/trans sul doppio, enantiomeri su un carbonio tetraedrico.",
   },
 ];
 
@@ -477,5 +656,155 @@ export const DEMO_MOLECULES = [
   { id: "ch4", formula: "CH₄", name: "Metano", kind: "compound", blurb: "Quattro covalenti C–H, tetraedro. Apolare." },
   { id: "nacl", formula: "NaCl", name: "Cloruro di sodio", kind: "ionic", blurb: "Non è una molecola: ogni Na⁺ è circondato da 6 Cl⁻ nel cubo del sale." },
   { id: "nh4", formula: "NH₄⁺", name: "Ione ammonio", kind: "compound", blurb: "Tre N–H covalenti + un dativo N→H⁺. Tetraedro, carica +1." },
+];
+
+export const LAB_SPECIES = [
+  { id: "h2o", formula: "H₂O", name: "Acqua", parts: [["H", 2], ["O", 1]], hint: "Il solvente universale. 18 g ≈ 1 mol ≈ 18 mL." },
+  { id: "nacl", formula: "NaCl", name: "Cloruro di sodio", parts: [["Na", 1], ["Cl", 1]], hint: "Sale da cucina. 58,4 g in 1 L → soluzione 1,00 M." },
+  { id: "hcl", formula: "HCl", name: "Acido cloridrico", parts: [["H", 1], ["Cl", 1]], hint: "Acido forte. 0,100 M ha pH 1,00." },
+  { id: "naoh", formula: "NaOH", name: "Idrossido di sodio", parts: [["Na", 1], ["O", 1], ["H", 1]], hint: "Base forte. 0,100 M ha pH 13,00." },
+  { id: "glc", formula: "C₆H₁₂O₆", name: "Glucosio", parts: [["C", 6], ["H", 12], ["O", 6]], hint: "Zucchero. 180 g/mol: una mole pesa quasi un bicchiere." },
+  { id: "co2", formula: "CO₂", name: "Anidride carbonica", parts: [["C", 1], ["O", 2]], hint: "44 g/mol. Un mol occupa 22,4 L come gas STP." },
+  { id: "ch4", formula: "CH₄", name: "Metano", parts: [["C", 1], ["H", 4]], hint: "16 g/mol. Quattro idrogeni su un carbonio." },
+  { id: "caco3", formula: "CaCO₃", name: "Carbonato di calcio", parts: [["Ca", 1], ["C", 1], ["O", 3]], hint: "Calcare. 100 g/mol: comodo per i conti a mente." },
+  { id: "fe", formula: "Fe", name: "Ferro", parts: [["Fe", 1]], hint: "Elemento. 55,8 g sono una mole di atomi, non di molecole." },
+  { id: "etoh", formula: "C₂H₆O", name: "Etanolo", parts: [["C", 2], ["H", 6], ["O", 1]], hint: "Alcol. Stessa formula dell’etere dimetilico: isomeri funzionali." },
+];
+
+export const PH_SAMPLES = [
+  { id: "hcl1", name: "HCl 0,10 M", pH: 1, kind: "acido forte" },
+  { id: "stomach", name: "Succo gastrico", pH: 2, kind: "acido" },
+  { id: "vinegar", name: "Aceto", pH: 2.4, kind: "acido debole" },
+  { id: "cola", name: "Bevanda gassata", pH: 3.2, kind: "acido" },
+  { id: "rain", name: "Pioggia", pH: 5.6, kind: "leggermente acido" },
+  { id: "milk", name: "Latte", pH: 6.5, kind: "quasi neutro" },
+  { id: "water", name: "Acqua pura, 25 °C", pH: 7, kind: "neutro" },
+  { id: "blood", name: "Sangue", pH: 7.4, kind: "tampone fisiologico" },
+  { id: "nahco3", name: "NaHCO₃ (aq)", pH: 8.3, kind: "basico debole" },
+  { id: "soap", name: "Sapone", pH: 10, kind: "basico" },
+  { id: "nh3", name: "NH₃ 0,10 M", pH: 11.1, kind: "base debole" },
+  { id: "naoh", name: "NaOH 0,10 M", pH: 13, kind: "base forte" },
+];
+
+export const FUNCTIONAL_PAIRS = [
+  {
+    id: "c2h6o",
+    formula: "C₂H₆O",
+    left: {
+      id: "etoh",
+      name: "Etanolo",
+      iupac: "etanolo",
+      group: "alcol",
+      bp: "78 °C",
+      note: "OH su catena C2. Legami a idrogeno: alto p.eb., miscibile con acqua.",
+    },
+    right: {
+      id: "dme",
+      name: "Metossimetano",
+      iupac: "metossimetano",
+      group: "etere",
+      bp: "−24 °C",
+      note: "Ossigeno a ponte tra due metili. Solo London: gas a T ambiente.",
+    },
+  },
+  {
+    id: "c3h6o",
+    formula: "C₃H₆O",
+    left: {
+      id: "propanal",
+      name: "Propanale",
+      iupac: "propanale",
+      group: "aldeide",
+      bp: "49 °C",
+      note: "Carbonile in cima alla catena (–CHO). Riduce il reattivo di Tollens.",
+    },
+    right: {
+      id: "acetone",
+      name: "Propanone",
+      iupac: "propanone",
+      group: "chetone",
+      bp: "56 °C",
+      note: "Carbonile interno. Non riduce Tollens. Solvente comune (acetone).",
+    },
+  },
+  {
+    id: "c3h8o",
+    formula: "C₃H₈O",
+    left: {
+      id: "propoh",
+      name: "Propan-1-olo",
+      iupac: "propan-1-olo",
+      group: "alcol",
+      bp: "97 °C",
+      note: "Alcol primario. Isomero di posizione del propan-2-olo, funzionale degli eteri C₃.",
+    },
+    right: {
+      id: "eme",
+      name: "Metossietano",
+      iupac: "metossietano",
+      group: "etere",
+      bp: "7 °C",
+      note: "Etere. Stessa formula, funzione diversa: niente H-bond donore.",
+    },
+  },
+];
+
+export const ISOMER_CHALLENGES = [
+  {
+    id: "nbutane",
+    prompt: "Monta il n-butano",
+    hint: "Catena lineare di quattro carboni, nessun gruppo funzionale.",
+    check: { skel: "n", group: "h", pos: 1 },
+    explain: "Butano: C₄H₁₀ lineare. L’isomero di catena è il 2-metilpropano.",
+  },
+  {
+    id: "isobutane",
+    prompt: "Trova l’isomero di catena del n-butano",
+    hint: "Stessa C₄H₁₀, scheletro ramificato.",
+    check: { skel: "iso", group: "h", pos: 2 },
+    explain: "2-metilpropano (isobutano): tre metili su un CH. Formula identica, p.eb. più basso.",
+  },
+  {
+    id: "but1ol",
+    prompt: "Costruisci il butan-1-olo",
+    hint: "Catena C4 lineare, OH sul carbonio terminale.",
+    check: { skel: "n", group: "oh", pos: 1 },
+    explain: "Butan-1-olo: alcol primario. Spostando l’OH sul C2 ottieni l’isomero di posizione.",
+  },
+  {
+    id: "but2ol",
+    prompt: "Sposta l’OH: ottieni l’isomero di posizione",
+    hint: "Stessa catena lineare, OH sul carbonio 2.",
+    check: { skel: "n", group: "oh", pos: 2 },
+    explain: "Butan-2-olo. Stesso scheletro, stesso gruppo, posizione diversa. Il C2 è anche stereocentro.",
+  },
+  {
+    id: "tbutanol",
+    prompt: "Ramifica: 2-metilpropan-2-olo",
+    hint: "Scheletro iso, OH sul carbonio centrale (terziario).",
+    check: { skel: "iso", group: "oh", pos: 2 },
+    explain: "Alcol terziario, isomero di catena (e in parte di posizione) dei butanoli lineari. Tutti C₄H₁₀O.",
+  },
+  {
+    id: "but2ene",
+    prompt: "Metti il doppio al centro: but-2-ene",
+    hint: "Catena lineare, doppio tra C2 e C3 — qui nascono cis e trans.",
+    check: { skel: "n", group: "=", pos: 2 },
+    explain: "But-2-ene. Il π blocca la rotazione: stereoisomeri geometrici. Il but-1-ene (doppio in punta) non li ha.",
+  },
+  {
+    id: "cl1",
+    prompt: "Costruisci l’1-clorobutano",
+    hint: "Catena lineare C4, cloro sul carbonio 1.",
+    check: { skel: "n", group: "cl", pos: 1 },
+    explain: "1-clorobutano: alogenuro primario. Spostando il Cl sul C2 ottieni l’isomero di posizione.",
+  },
+  {
+    id: "but1ene",
+    prompt: "Doppio in punta: but-1-ene",
+    hint: "Catena lineare, C=C tra C1 e C2. Il CH₂ ha due H uguali: niente cis/trans.",
+    check: { skel: "n", group: "=", pos: 1 },
+    explain: "But-1-ene, alchene terminale. L’isomero di posizione è il but-2-ene, che invece ha cis e trans.",
+  },
 ];
 
