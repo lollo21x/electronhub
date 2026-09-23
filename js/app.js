@@ -2202,3 +2202,12 @@ export function mountElectronHub(el) {
     if (r.view !== "tavola" || r.symbol || r.lesson || r.studio) setHashFromState();
   }
 }
+
+const __ehRoot = document.getElementById("app");
+if (__ehRoot) mountElectronHub(__ehRoot);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register(new URL("../sw.js", import.meta.url)).catch(() => {});
+  });
+}
