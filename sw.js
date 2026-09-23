@@ -1,4 +1,4 @@
-const CACHE = "electronhub-v4";
+const CACHE = "electronhub-v5";
 const BASE = new URL(".", self.location.href);
 const ASSETS = [
   ".",
