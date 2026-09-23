@@ -102,9 +102,47 @@ const ICONS = {
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
 };
 
+const PAL = {
+  fg: "#ecece8",
+  muted: "#9a9b96",
+  subtle: "#8a8b86",
+  elevated: "#1c1e22",
+  surface: "#141518",
+  electron: "#4f8f7b",
+  core: "#7a8494",
+  valence: "#c5cdd6",
+  warn: "#c4a574",
+  danger: "#c45c4a",
+  accent: "#c5cdd6",
+  accentFg: "#0b0c0e",
+  ring: "#a8adb3",
+};
+
+function hexMix(a, b, t) {
+  const p = Math.max(0, Math.min(1, Number(t) || 0));
+  const parse = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const A = parse(a);
+  const B = parse(b);
+  const ch = (i) => Math.round(A[i] + (B[i] - A[i]) * p).toString(16).padStart(2, "0");
+  return `#${ch(0)}${ch(1)}${ch(2)}`;
+}
+
+function rgba(hex, a) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+let svgUid = 0;
+function uid(prefix) {
+  svgUid += 1;
+  return `${prefix}${svgUid}`;
+}
+
 const state = {
   view: "tavola",
-  symbol: "Fe",
+  symbol: null,
   cat: "all",
   heat: "none",
   list: false,
@@ -138,12 +176,14 @@ const state = {
   isoPos: 1,
   isoChallenge: 0,
   isoFeedback: null,
+  isoDepth: 1,
   funPair: "c2h6o",
   stereoMode: "conform",
   newmanAngle: 60,
   geoIsomer: "cis",
   opticalFace: "R",
   showMirror: true,
+  stereoDepth: 1,
   installHide: localStorage.getItem("electronhub-install-dismissed") === "1",
   deferredPrompt: null,
   ios: false,
@@ -211,22 +251,36 @@ function bohrSvg(el, size = 280) {
         const x = cx + r * Math.cos(angle);
         const y = cy + r * Math.sin(angle);
         const rad = i === shells.length - 1 ? 3.2 : 2.6;
-        const fill = i === shells.length - 1 ? "var(--color-valence)" : "var(--color-electron)";
+        const fill = i === shells.length - 1 ? PAL.valence : PAL.electron;
         return `<circle cx="${x}" cy="${y}" r="${rad}" fill="${fill}"/>`;
       }).join("");
       const extra =
         count > electrons
-          ? `<text x="${cx + r + 6}" y="${cy - 4}" fill="var(--color-muted)" font-size="9" font-family="var(--font-mono)">+${count - electrons}</text>`
+          ? `<text x="${cx + r + 6}" y="${cy - 4}" fill="${PAL.muted}" font-size="9" font-family="var(--font-mono)">+${count - electrons}</text>`
           : "";
       const spin = i % 2 === 0 ? "orbit-spin" : "orbit-spin-rev";
-      return `<g><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--color-border-strong)" stroke-width="1"/><g class="${spin}" style="animation-duration:${duration}s;transform-origin:${cx}px ${cy}px">${dots}</g>${extra}</g>`;
+      return `<g>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${PAL.ring}" stroke-width="1.85" opacity="0.95"/>
+        <g class="${spin}" style="animation-duration:${duration}s;transform-origin:${cx}px ${cy}px;-webkit-transform-origin:${cx}px ${cy}px">${dots}</g>
+        ${extra}
+      </g>`;
     })
     .join("");
   const nr = Math.max(14, gap * 0.42);
   const fs = el.symbol.length > 2 ? 11 : 14;
-  return `<div class="bohr"><svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Modello di Bohr di ${esc(el.name)}"><circle cx="${cx}" cy="${cy}" r="${size / 2 - 2}" fill="var(--color-elevated)"/>${rings}<circle cx="${cx}" cy="${cy}" r="${nr}" fill="var(--color-accent-fg)"/><circle cx="${cx}" cy="${cy}" r="${nr}" fill="none" stroke="var(--color-accent)" stroke-width="1.5"/><text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle" fill="var(--color-fg)" font-size="${fs}" font-family="var(--font-sans)" font-weight="500">${esc(el.symbol)}</text></svg><ul class="shell-pills">${shells
+  return `<div class="bohr"><svg viewBox="0 0 ${size} ${size}" role="img" aria-label="Modello di Bohr di ${esc(el.name)}"><circle cx="${cx}" cy="${cy}" r="${size / 2 - 2}" fill="${PAL.elevated}"/>${rings}<circle cx="${cx}" cy="${cy}" r="${nr}" fill="${PAL.accentFg}"/><circle cx="${cx}" cy="${cy}" r="${nr}" fill="none" stroke="${PAL.accent}" stroke-width="1.5"/><text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle" fill="${PAL.fg}" font-size="${fs}" font-family="var(--font-sans)" font-weight="500">${esc(el.symbol)}</text></svg><ul class="shell-pills">${shells
     .map((c, i) => `<li><span>${SHELL_NAMES[i]}</span> ${c}</li>`)
     .join("")}</ul></div>`;
+}
+
+function idleAtomSvg() {
+  const size = 220;
+  const cx = 110;
+  const cy = 110;
+  const rings = [28, 52, 76, 96]
+    .map((r, i) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${PAL.ring}" stroke-width="${i === 3 ? 1.6 : 1.35}" opacity="${0.35 + i * 0.12}" stroke-dasharray="${i === 3 ? "0" : "4 5"}"/>`)
+    .join("");
+  return `<svg viewBox="0 0 ${size} ${size}" role="img" aria-hidden="true"><circle cx="${cx}" cy="${cy}" r="108" fill="${PAL.elevated}"/>${rings}<circle cx="${cx}" cy="${cy}" r="12" fill="${PAL.accentFg}" stroke="${PAL.accent}" stroke-width="1.4"/></svg>`;
 }
 
 function heatRange(mode) {
@@ -238,10 +292,10 @@ function heatRange(mode) {
 function heatMix(el, mode, range) {
   if (mode === "none" || !range) return "";
   const v = HEAT_GET[mode](el);
-  if (v == null) return "background:color-mix(in oklab, var(--color-elevated) 80%, transparent)";
+  if (v == null) return `background:${PAL.elevated};color:${PAL.muted}`;
   const t = (v - range.min) / (range.max - range.min || 1);
-  const pct = Math.round(18 + t * 72);
-  return `background:color-mix(in oklab, var(--color-electron) ${pct}%, var(--color-elevated))`;
+  const bg = hexMix(PAL.elevated, PAL.electron, 0.2 + t * 0.8);
+  return `background:${bg}`;
 }
 
 function tableHtml(selected, filter, heat, onPickAttr = "pick") {
@@ -356,7 +410,7 @@ function beakerSvg(fillCss, label, opts = {}) {
     ? Array.from({ length: 7 }, (_, i) => {
         const bx = 92 + ((i * 17) % 56);
         const by = Math.min(186, y + 12 + (i % 3) * 11);
-        return `<circle cx="${bx}" cy="${by}" r="${1.6 + (i % 3) * 0.5}" fill="color-mix(in oklab, var(--color-fg) 38%, transparent)"/>`;
+        return `<circle cx="${bx}" cy="${by}" r="${1.6 + (i % 3) * 0.5}" fill="${rgba(PAL.fg, 0.38)}"/>`;
       }).join("")
     : "";
   return `<svg viewBox="0 0 240 230" class="lab-svg" role="img" aria-label="${esc(label)}">
@@ -368,7 +422,7 @@ function beakerSvg(fillCss, label, opts = {}) {
       </linearGradient>
     </defs>
     <path d="M82 ${y} H158 V168 C158 192 142 202 120 202 C98 202 82 192 82 168 Z" fill="${fillCss}"/>
-    <path d="M82 ${y} Q120 ${y - 5} 158 ${y}" fill="none" stroke="color-mix(in oklab, var(--color-fg) 28%, transparent)" stroke-width="1.8"/>
+    <path d="M82 ${y} Q120 ${y - 5} 158 ${y}" fill="none" stroke="${rgba(PAL.fg, 0.28)}" stroke-width="1.8"/>
     ${foam}
     <path d="M64 14 h112 v14 h-14 v140 c0 32-20 46-46 46 s-46-14-46-46 V28 H64 Z" fill="url(#beak-shine)" stroke="var(--color-border-strong)" stroke-width="1.7"/>
     ${[0, 1, 2, 3, 4].map((i) => {
@@ -394,7 +448,7 @@ function electrodeSvg(pH) {
   const css = phColorCss(pH);
   return `<svg viewBox="0 0 80 230" class="lab-svg electrode" role="img" aria-label="Elettrodo di vetro">
     <rect x="34" y="8" width="12" height="110" rx="3" fill="var(--color-core)"/>
-    <rect x="28" y="112" width="24" height="58" rx="8" fill="color-mix(in oklab, var(--color-accent) 40%, var(--color-elevated))" stroke="var(--color-border-strong)"/>
+    <rect x="28" y="112" width="24" height="58" rx="8" fill="${hexMix(PAL.accent, PAL.elevated, 0.55)}" stroke="${PAL.ring}"/>
     <path d="M28 168 h24 l-6 28 h-12 Z" fill="${css}" stroke="var(--color-border-strong)"/>
     <circle cx="40" cy="202" r="10" fill="${css}" stroke="var(--color-fg)" stroke-width="1.2"/>
   </svg>`;
@@ -593,6 +647,311 @@ function skeletalSvg(skel, group, pos, geo = "cis", opts = {}) {
   return `<svg viewBox="0 0 340 210" class="mol-svg${mini ? " is-mini" : ""}" role="img" aria-label="Formula di struttura">${bonds}${hydrogens}${groupMark}${verts}</svg>`;
 }
 
+function molCoords3d(skel, group, pos, geo) {
+  const p = Number(pos);
+  let carbons;
+  if (skel === "iso") {
+    carbons = [
+      { id: 1, el: "C", x: -1.35, y: 0.55, z: 0.75 },
+      { id: 2, el: "C", x: 0, y: 0, z: 0 },
+      { id: 3, el: "C", x: 1.35, y: 0.55, z: 0.75 },
+      { id: 4, el: "C", x: 0, y: -0.4, z: -1.32 },
+    ];
+  } else if (group === "=" && (p === 2 || p === 3)) {
+    const cis = geo !== "trans";
+    carbons = [
+      { id: 1, el: "C", x: -1.9, y: 0.9, z: 0.25 },
+      { id: 2, el: "C", x: -0.55, y: 0, z: 0 },
+      { id: 3, el: "C", x: 0.55, y: 0, z: 0 },
+      { id: 4, el: "C", x: 1.9, y: cis ? 0.9 : -0.9, z: 0.25 },
+    ];
+  } else if (group === "=" && p === 1) {
+    carbons = [
+      { id: 1, el: "C", x: -1.75, y: 0, z: 0 },
+      { id: 2, el: "C", x: -0.4, y: 0, z: 0 },
+      { id: 3, el: "C", x: 0.85, y: 0.72, z: 0.4 },
+      { id: 4, el: "C", x: 2.0, y: 0.38, z: -0.45 },
+    ];
+  } else if (group === "=" && p === 4) {
+    carbons = [
+      { id: 1, el: "C", x: -2.0, y: 0.38, z: -0.45 },
+      { id: 2, el: "C", x: -0.85, y: 0.72, z: 0.4 },
+      { id: 3, el: "C", x: 0.4, y: 0, z: 0 },
+      { id: 4, el: "C", x: 1.75, y: 0, z: 0 },
+    ];
+  } else {
+    carbons = [
+      { id: 1, el: "C", x: -1.92, y: 0.48, z: 0.55 },
+      { id: 2, el: "C", x: -0.64, y: 0, z: -0.18 },
+      { id: 3, el: "C", x: 0.64, y: 0, z: 0.18 },
+      { id: 4, el: "C", x: 1.92, y: 0.48, z: -0.55 },
+    ];
+  }
+  const double =
+    group === "="
+      ? skel === "iso"
+        ? [2, 4]
+        : p === 1
+          ? [1, 2]
+          : p === 4
+            ? [3, 4]
+            : [2, 3]
+      : null;
+  const bonds =
+    skel === "iso"
+      ? [
+          [1, 2, 1],
+          [2, 3, 1],
+          [2, 4, double ? 2 : 1],
+        ]
+      : [
+          [1, 2, double && double[0] === 1 ? 2 : 1],
+          [2, 3, double && double[0] === 2 ? 2 : 1],
+          [3, 4, double && double[0] === 3 ? 2 : 1],
+        ];
+  const extra = [];
+  if (group === "oh" || group === "cl") {
+    const c = carbons.find((a) => a.id === p) || carbons[0];
+    let ox = 0;
+    let oy = 1.15;
+    let oz = 0.2;
+    if (skel === "iso") {
+      if (p === 2) {
+        ox = 0;
+        oy = 1.2;
+        oz = 0.15;
+      } else if (p === 4) {
+        ox = 0.15;
+        oy = -1.05;
+        oz = -0.45;
+      } else if (p === 1) {
+        ox = -0.95;
+        oy = 0.25;
+        oz = 1.05;
+      } else {
+        ox = 0.95;
+        oy = 0.25;
+        oz = 1.05;
+      }
+    } else if (p === 1) {
+      ox = -0.75;
+      oy = -1.0;
+      oz = 0.45;
+    } else if (p === 2) {
+      ox = 0;
+      oy = 1.18;
+      oz = -0.2;
+    } else if (p === 3) {
+      ox = 0;
+      oy = -1.18;
+      oz = 0.2;
+    } else {
+      ox = 0.75;
+      oy = 1.0;
+      oz = 0.35;
+    }
+    extra.push({
+      id: 10,
+      el: group === "oh" ? "O" : "Cl",
+      x: c.x + ox,
+      y: c.y + oy,
+      z: c.z + oz,
+      label: group === "oh" ? "OH" : "Cl",
+    });
+    bonds.push([p, 10, 1]);
+  }
+  return { atoms: carbons.concat(extra), bonds, double };
+}
+
+function project3d(x, y, z, depth) {
+  const d = Math.max(0, Math.min(1, depth));
+  const yaw = -0.7 * d;
+  const pitch = 0.4 * d;
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  let X = x * cy + z * sy;
+  let Z = -x * sy + z * cy;
+  let Y = y * cp - Z * sp;
+  Z = y * sp + Z * cp;
+  const s = 1 / Math.max(0.55, 1 - Z * 0.16);
+  return { x: 170 + X * 56 * s, y: 108 - Y * 56 * s, z: Z, s };
+}
+
+function atomColor(el) {
+  if (el === "O") return PAL.electron;
+  if (el === "Cl") return PAL.warn;
+  if (el === "H") return PAL.muted;
+  if (el === "N") return "#4a78a8";
+  return PAL.valence;
+}
+
+function isoMoleculeSvg(skel, group, pos, geo = "cis", depth = 1, opts = {}) {
+  const d = Math.max(0, Math.min(1, Number(depth) || 0));
+  const layout = molLayout(skel, group, pos, geo);
+  const space = molCoords3d(skel, group, pos, geo);
+  const byFlat = Object.fromEntries(layout.pts.map((pt) => [pt.id, pt]));
+  const gid = uid("g");
+  const projected = space.atoms.map((a) => {
+    const p3 = project3d(a.x, a.y, a.z, d);
+    const f = byFlat[a.id];
+    const fx = f ? f.x : p3.x;
+    const fy = f ? f.y : p3.y;
+    return {
+      ...a,
+      px: fx * (1 - d) + p3.x * d,
+      py: fy * (1 - d) + p3.y * d,
+      pz: p3.z,
+      s: p3.s,
+    };
+  });
+  const byId = Object.fromEntries(projected.map((a) => [a.id, a]));
+  const bondDraw = space.bonds
+    .map(([a, b, order]) => {
+      const p = byId[a];
+      const q = byId[b];
+      if (!p || !q) return null;
+      const z = (p.pz + q.pz) / 2;
+      const col = order === 2 ? PAL.electron : hexMix(PAL.fg, PAL.core, d * 0.35);
+      const sw = 2.3 + d * 4.2 * ((p.s + q.s) / 2);
+      let mark = `<line x1="${p.px}" y1="${p.py}" x2="${q.px}" y2="${q.py}" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/>`;
+      if (order === 2 && d < 0.55) {
+        mark = bondStroke({ x: p.px, y: p.py }, { x: q.px, y: q.py }, 2, PAL.electron);
+      }
+      return { z, html: mark };
+    })
+    .filter(Boolean);
+  const atomDraw = projected.map((a) => {
+    const on = a.id === Number(pos) && group !== "h" && a.el === "C";
+    const r2 = on ? 5 : 3.1;
+    const r3 = (a.el === "Cl" ? 16 : a.el === "O" ? 15 : 13) * a.s;
+    const r = r2 * (1 - d) + r3 * d;
+    const col = a.el === "C" ? (on ? PAL.electron : PAL.fg) : atomColor(a.el);
+    const grad = `${gid}-${a.id}`;
+    const highlight = hexMix("#ffffff", col, 0.55);
+    const defs = `<radialGradient id="${grad}" cx="32%" cy="28%" r="70%"><stop offset="0" stop-color="${highlight}"/><stop offset="1" stop-color="${col}"/></radialGradient>`;
+    const fill = d > 0.25 ? `url(#${grad})` : col;
+    const label3 =
+      d > 0.42
+        ? `<text x="${a.px}" y="${a.py + 1}" text-anchor="middle" dominant-baseline="middle" fill="${PAL.accentFg}" font-size="${Math.max(9, r * 0.7)}" font-family="var(--font-sans)" font-weight="600">${a.label || a.el}</text>`
+        : "";
+    const nOff =
+      skel === "iso"
+        ? a.id === 2
+          ? { x: 14, y: -6 }
+          : a.id === 4
+            ? { x: 16, y: 6 }
+            : a.id === 1
+              ? { x: -12, y: 16 }
+              : { x: 12, y: 16 }
+        : a.id % 2 === 1
+          ? { x: 0, y: 18 }
+          : { x: 0, y: -16 };
+    const num =
+      !opts.mini && a.el === "C" && d < 0.72
+        ? `<text x="${a.px + nOff.x * (1 - d)}" y="${a.py + nOff.y * (1 - d)}" text-anchor="middle" fill="${PAL.subtle}" font-size="10" font-family="var(--font-mono)" opacity="${1 - d}">${a.id}</text>`
+        : "";
+    const hit = opts.mini || a.el !== "C" ? "" : `<circle class="iso-hit" cx="${a.px}" cy="${a.py}" r="22" fill="transparent" data-act="iso-pos:${a.id}"/>`;
+    return { z: a.pz, defs, html: `<circle cx="${a.px}" cy="${a.py}" r="${r}" fill="${fill}" stroke="${hexMix(col, PAL.accentFg, 0.35)}" stroke-width="${d > 0.4 ? 1.1 : 0}"/>${label3}${num}${hit}` };
+  });
+  const hydrogens =
+    d < 0.55
+      ? layout.hydrogens
+          .map((h) => {
+            const from = byFlat[h.from];
+            if (!from) return "";
+            const op = 1 - d * 1.4;
+            if (op <= 0) return "";
+            return `<line x1="${from.x}" y1="${from.y}" x2="${h.x}" y2="${h.y}" stroke="${PAL.fg}" stroke-width="1.7" stroke-linecap="round" opacity="${op}"/><text x="${h.x}" y="${h.y + 4}" text-anchor="middle" fill="${PAL.muted}" font-size="12" opacity="${op}">${h.label}</text>`;
+          })
+          .join("")
+      : "";
+  const group2d =
+    d < 0.5 && (group === "oh" || group === "cl")
+      ? (() => {
+          const attach = byFlat[Number(pos)] ?? layout.pts[0];
+          const tip = groupTip(skel, pos, attach);
+          const col = group === "oh" ? PAL.electron : PAL.warn;
+          const op = 1 - d * 1.6;
+          if (op <= 0) return "";
+          return `<line x1="${attach.x}" y1="${attach.y}" x2="${tip.x}" y2="${tip.y}" stroke="${col}" stroke-width="2.6" opacity="${op}"/><text x="${tip.tx}" y="${tip.ty}" fill="${col}" font-size="15" opacity="${op}">${group === "oh" ? "OH" : "Cl"}</text>`;
+        })()
+      : "";
+  const layers = bondDraw.concat(atomDraw).sort((a, b) => a.z - b.z);
+  const defs = atomDraw.map((a) => a.defs).join("");
+  const caption = d > 0.65 ? "modello 3D a sfere" : d < 0.35 ? "formula di struttura 2D" : "proiezione intermedia";
+  return `<svg viewBox="0 0 340 210" class="mol-svg" role="img" aria-label="Molecola, ${caption}">
+    <defs>${defs}</defs>
+    ${hydrogens}${group2d}${layers.map((x) => x.html).join("")}
+  </svg>`;
+}
+
+function depthControl(act, value, left, right) {
+  const pct = Math.round(value * 100);
+  return `<div class="iso-depth">
+    <div class="iso-view-scale"><span>${esc(left)}</span><span data-live="${act}-lab">${pct < 35 ? right : pct > 65 ? left : "proiezione"}</span><span>${esc(right)}</span></div>
+    <input type="range" min="0" max="100" step="1" value="${pct}" data-act="${act}" aria-label="Proiezione 3D verso 2D"/>
+  </div>`;
+}
+
+function tetra3dSvg(face, mirror, depth) {
+  const d = Math.max(0, Math.min(1, Number(depth) || 0));
+  const flip = mirror ? -1 : 1;
+  const isR = face === "R";
+  const groups = [
+    { id: "COOH", x: 0, y: 1.25, z: 0.05, col: PAL.warn },
+    { id: "OH", x: flip * (isR ? 1.1 : -1.1), y: -0.28, z: 0.78, col: PAL.electron },
+    { id: "H", x: flip * (isR ? -1.1 : 1.1), y: -0.32, z: 0.7, col: PAL.muted },
+    { id: "CH₃", x: 0, y: -0.55, z: -1.15, col: PAL.core },
+  ];
+  const C = project3d(0, 0, 0, d);
+  const cx2 = 140;
+  const cy2 = 96;
+  const mapped = groups.map((g) => {
+    const p = project3d(g.x, g.y, g.z, d);
+    const flat = {
+      COOH: { x: cx2, y: 22 },
+      "CH₃": { x: cx2 + flip * 86, y: 154 },
+      OH: { x: cx2 + flip * 92, y: 52 },
+      H: { x: cx2 - flip * 90, y: 136 },
+    }[g.id];
+    return {
+      ...g,
+      px: (flat?.x ?? p.x) * (1 - d) + (140 + (p.x - 170)) * d,
+      py: (flat?.y ?? p.y) * (1 - d) + (96 + (p.y - 108)) * d,
+      pz: p.z,
+      s: p.s,
+    };
+  });
+  const gid = uid("t");
+  const center = { px: cx2 * (1 - d) + (140 + (C.x - 170)) * d, py: cy2 * (1 - d) + (96 + (C.y - 108)) * d, pz: C.z, s: C.s };
+  const bonds = mapped
+    .map((g) => {
+      const col = g.col;
+      const sw = 2.2 + d * 3;
+      return { z: (g.pz + center.pz) / 2, html: `<line x1="${center.px}" y1="${center.py}" x2="${g.px}" y2="${g.py}" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/>` };
+    });
+  const atomHtml = mapped.map((g) => {
+    const r = 4 + d * 12 * g.s;
+    const grad = `${gid}-${g.id}`;
+    const defs = `<radialGradient id="${grad}" cx="32%" cy="28%" r="70%"><stop offset="0" stop-color="${hexMix("#fff", g.col, 0.5)}"/><stop offset="1" stop-color="${g.col}"/></radialGradient>`;
+    const label = `<text x="${g.px}" y="${g.py - r - 6}" text-anchor="middle" fill="${g.col}" font-size="12">${g.id}</text>`;
+    return { z: g.pz, defs, html: `<circle cx="${g.px}" cy="${g.py}" r="${r}" fill="${d > 0.3 ? `url(#${grad})` : g.col}"/>${label}` };
+  });
+  const core = {
+    z: center.pz + 0.2,
+    defs: "",
+    html: `<circle cx="${center.px}" cy="${center.py}" r="${12 + d * 4}" fill="${PAL.elevated}" stroke="${PAL.warn}" stroke-width="1.8"/><text x="${center.px}" y="${center.py + 1}" text-anchor="middle" dominant-baseline="middle" fill="${PAL.warn}" font-size="11" font-family="var(--font-mono)">C*</text>`,
+  };
+  const layers = bonds.concat(atomHtml).concat([core]).sort((a, b) => a.z - b.z);
+  return `<svg viewBox="0 0 280 186" class="mol-svg" role="img" aria-label="Acido lattico ${face}">
+    <defs>${atomHtml.map((a) => a.defs).join("")}</defs>
+    ${layers.map((x) => x.html).join("")}
+    <text x="140" y="182" text-anchor="middle" fill="${PAL.subtle}" font-size="11">${mirror ? "immagine speculare" : `configurazione ${face}`}</text>
+  </svg>`;
+}
+
 function isomerFamily(skel, group) {
   if (group === "h") {
     return [
@@ -673,7 +1032,7 @@ function newmanSvg(angle) {
   return `<svg viewBox="0 0 240 240" class="mol-svg newman" role="img" aria-label="Proiezione di Newman dell’etano">
     <defs>
       <radialGradient id="newman-disk" cx="42%" cy="38%" r="62%">
-        <stop offset="0" stop-color="color-mix(in oklab, var(--color-elevated) 70%, var(--color-fg))"/>
+        <stop offset="0" stop-color="${hexMix(PAL.elevated, PAL.fg, 0.28)}"/>
         <stop offset="1" stop-color="var(--color-elevated)"/>
       </radialGradient>
     </defs>
@@ -713,7 +1072,7 @@ function energyCurve(angle) {
     return `<line x1="${tx}" y1="${h - 8}" x2="${tx}" y2="${h - 4}" stroke="var(--color-subtle)"/><text x="${tx}" y="${h}" text-anchor="middle" fill="var(--color-subtle)" font-size="8">${d}°</text>`;
   }).join("");
   return `<svg viewBox="0 0 ${w} ${h}" class="energy-svg" role="img" aria-label="Energia di torsione">
-    <polygon points="0,${h - 10} ${pts.join(" ")} ${w},${h - 10}" fill="color-mix(in oklab, var(--color-electron) 16%, transparent)"/>
+    <polygon points="0,${h - 10} ${pts.join(" ")} ${w},${h - 10}" fill="${rgba(PAL.electron, 0.16)}"/>
     <polyline points="${pts.join(" ")}" fill="none" stroke="var(--color-electron)" stroke-width="1.8"/>
     <circle cx="${x}" cy="${y}" r="4.5" fill="var(--color-fg)"/>
     <text x="6" y="12" fill="var(--color-subtle)" font-size="9">E</text>
@@ -884,8 +1243,8 @@ function shell(inner) {
 }
 
 function viewTavola() {
-  const el = getElement(state.symbol) ?? ELEMENTS[25];
-  const layers = splitCoreValence(el.occupancy, el.block);
+  const el = state.symbol ? getElement(state.symbol) : null;
+  const layers = el ? splitCoreValence(el.occupancy, el.block) : null;
   const results = state.query ? searchElements(state.query) : null;
   const heatBtns = [
     ["none", "Famiglie"],
@@ -910,7 +1269,26 @@ function viewTavola() {
           (e) =>
             `<li><button type="button" class="search-row" data-act="pick" data-sym="${e.symbol}"><span class="ps">${esc(e.symbol)}</span><span><b>${esc(e.name)}</b><small>Z ${e.z}</small></span></button></li>`,
         ).join("")}</ul>`
-      : `<p class="scroll-hint">Scorri la tavola in orizzontale.</p>${tableHtml(el.symbol, state.cat, state.heat)}`;
+      : `<p class="scroll-hint">Scorri la tavola in orizzontale.</p>${tableHtml(el ? el.symbol : null, state.cat, state.heat)}`;
+  const peek = el
+    ? `<section class="peek">
+      ${bohrSvg(el, 260)}
+      <div>
+        <div class="peek-meta"><span class="mono subtle">${el.z}</span> ${badge(CATEGORY_LABEL[el.category])}${el.exception ? badge("Eccezione Aufbau") : ""}</div>
+        <h2>${esc(el.symbol)} <span class="muted">${esc(el.name)}</span></h2>
+        <p class="mono cfg">${esc(formatCondensed(el.occupancy, el.z))}</p>
+        <p class="muted">Core ${layers.coreCount} · valenza ${layers.valenceCount} · ${layers.unpaired} spaiati · ${layers.magnetic}</p>
+        <a class="btn" href="#/elemento/${el.symbol}" data-act="go" data-hash="/elemento/${el.symbol}">Scheda completa</a>
+      </div>
+    </section>`
+    : `<section class="peek peek-idle">
+      <div class="bohr-idle">${idleAtomSvg()}</div>
+      <div>
+        <p class="kicker">Scheda elemento</p>
+        <h2>Nessuna selezione</h2>
+        <p class="lede">Tocca una casella della tavola per vedere gusci, configurazione e scheda. All’avvio non c’è nessun elemento pre-selezionato.</p>
+      </div>
+    </section>`;
   return `<div class="stagger page">
     <header class="page-head">
       <div>
@@ -925,16 +1303,7 @@ function viewTavola() {
     </header>
     <div class="toolbar">${legendHtml(state.cat)}<div class="heat-row">${heatBtns}${chip(state.list, "toggle-list", state.list ? "Griglia" : "Lista", 'data-mobile="1"')}</div></div>
     ${body}
-    <section class="peek">
-      ${bohrSvg(el, 260)}
-      <div>
-        <div class="peek-meta"><span class="mono subtle">${el.z}</span> ${badge(CATEGORY_LABEL[el.category])}${el.exception ? badge("Eccezione Aufbau") : ""}</div>
-        <h2>${esc(el.symbol)} <span class="muted">${esc(el.name)}</span></h2>
-        <p class="mono cfg">${esc(formatCondensed(el.occupancy, el.z))}</p>
-        <p class="muted">Core ${layers.coreCount} · valenza ${layers.valenceCount} · ${layers.unpaired} spaiati · ${layers.magnetic}</p>
-        <a class="btn" href="#/elemento/${el.symbol}" data-act="go" data-hash="/elemento/${el.symbol}">Scheda completa</a>
-      </div>
-    </section>
+    ${peek}
   </div>`;
 }
 
@@ -1081,10 +1450,10 @@ function viewAtomo() {
           <button type="button" class="btn btn-ghost sm" data-act="play">${state.playing ? "Pausa" : "Riempi 1–118"}</button>
         </div>
         <label class="range">
-          <span>Z = <b class="mono">${z}</b> · ${esc(element.name)} <span class="mono">${esc(element.symbol)}</span></span>
+          <span data-live="z-label">Z = <b class="mono">${z}</b> · ${esc(element.name)} <span class="mono">${esc(element.symbol)}</span></span>
           <input type="range" min="1" max="118" value="${z}" data-act="z" aria-label="Numero atomico"/>
         </label>
-        <div class="aufbau-map">${DIAGRAM.map((row) => {
+        <div class="aufbau-map" data-live="z-map">${DIAGRAM.map((row) => {
           const orbs = row.orbs
             .map((id) => {
               const filled = occ[id] ?? 0;
@@ -1098,8 +1467,8 @@ function viewAtomo() {
             .join("");
           return `<div class="aufbau-row"><span class="plab">n=${row.n}</span><div class="orb-row">${orbs}</div></div>`;
         }).join("")}</div>
-        <p class="mono cfg mt">${esc(formatCondensed(occ, z))}</p>
-        <p class="tiny ${element.exception ? "warn" : "muted"}">${
+        <p class="mono cfg mt" data-live="z-cfg">${esc(formatCondensed(occ, z))}</p>
+        <p class="tiny ${element.exception ? "warn" : "muted"}" data-live="z-note">${
           element.exception
             ? "Eccezione: la configurazione reale differisce dall’ordine Madelung puro."
             : "Segue l’ordine n+ℓ (Madelung). Diagonale: 4s prima di 3d, 5s prima di 4d, 6s prima di 4f."
@@ -1108,7 +1477,7 @@ function viewAtomo() {
       <aside class="stack">
         <div class="card">
           <p class="kicker">Sequenza Madelung</p>
-          <ol class="madelung">${AUFBAU_ORDER.map((id, i) => `<li class="${(occ[id] ?? 0) > 0 ? "is-fill" : ""}${state.focusOrb === id ? " is-on" : ""}"><span class="subtle">${i + 1}.</span> ${id}</li>`).join("")}</ol>
+          <ol class="madelung" data-live="z-madelung">${AUFBAU_ORDER.map((id, i) => `<li class="${(occ[id] ?? 0) > 0 ? "is-fill" : ""}${state.focusOrb === id ? " is-on" : ""}"><span class="subtle">${i + 1}.</span> ${id}</li>`).join("")}</ol>
         </div>
         <div class="card">
           <p class="kicker">Tre regole</p>
@@ -1336,12 +1705,12 @@ function lessonBody(id) {
       <div class="split">
         <div class="card">
           <p class="kicker">Orbitale s</p>
-          <svg viewBox="0 0 160 160" class="shape"><circle cx="80" cy="80" r="48" fill="color-mix(in oklab, var(--color-electron) 35%, transparent)" stroke="var(--color-electron)"/><circle cx="80" cy="80" r="4" fill="var(--color-fg)"/></svg>
+          <svg viewBox="0 0 160 160" class="shape"><circle cx="80" cy="80" r="48" fill="${rgba(PAL.electron, 0.35)}" stroke="${PAL.electron}"/><circle cx="80" cy="80" r="4" fill="${PAL.fg}"/></svg>
           <p class="muted tiny">Sfera centrata sul nucleo. 1 orbitale, 2 e⁻.</p>
         </div>
         <div class="card">
           <p class="kicker">Orbitali p</p>
-          <svg viewBox="0 0 200 120" class="shape"><ellipse cx="55" cy="60" rx="28" ry="18" fill="color-mix(in oklab, var(--color-valence) 35%, transparent)" stroke="var(--color-valence)"/><ellipse cx="145" cy="60" rx="28" ry="18" fill="color-mix(in oklab, var(--color-valence) 35%, transparent)" stroke="var(--color-valence)"/><circle cx="100" cy="60" r="4" fill="var(--color-fg)"/></svg>
+          <svg viewBox="0 0 200 120" class="shape"><ellipse cx="55" cy="60" rx="28" ry="18" fill="${rgba(PAL.valence, 0.35)}" stroke="${PAL.valence}"/><ellipse cx="145" cy="60" rx="28" ry="18" fill="${rgba(PAL.valence, 0.35)}" stroke="${PAL.valence}"/><circle cx="100" cy="60" r="4" fill="${PAL.fg}"/></svg>
           <p class="muted tiny">Tre manubri px, py, pz. 6 e⁻ in tutto.</p>
         </div>
       </div>
@@ -1368,7 +1737,7 @@ function lessonBody(id) {
     const n = M > 0 ? mass / M : 0;
     const N = n * NA;
     const c = n / vol;
-    const fill = spec.id === "fe" ? "color-mix(in oklab, var(--color-core) 55%, transparent)" : "color-mix(in oklab, var(--color-electron) 45%, transparent)";
+    const fill = spec.id === "fe" ? rgba(PAL.core, 0.55) : rgba(PAL.electron, 0.45);
     const partsLine = spec.parts.map(([sym, k]) => `${k > 1 ? k : ""}${sym}`).join(" + ");
     return `<div class="stack">
       <p class="lede">La mole è un conteggio. La bilancia legge grammi; M (g/mol) li converte in n. Poi n entra nel matraccio: c = n / V.</p>
@@ -1376,8 +1745,8 @@ function lessonBody(id) {
       <div class="split">
         <div class="card lab-stage">
           <p class="kicker">Banco · ${esc(spec.name)}</p>
-          ${beakerSvg(fill, spec.name, { level: Math.min(0.82, 0.25 + n * 0.12), bubbles: n > 0.4 })}
-          <div class="stats-3">
+          <div data-live="lab-beaker">${beakerSvg(fill, spec.name, { level: Math.min(0.82, 0.25 + n * 0.12), bubbles: n > 0.4 })}</div>
+          <div class="stats-3" data-live="lab-stats">
             <div class="stat"><p class="kicker">M</p><p class="stat-v">${fmtMass(M)}</p><p class="muted">g/mol</p></div>
             <div class="stat is-on"><p class="kicker">n</p><p class="stat-v">${n < 0.1 ? n.toFixed(3) : n.toFixed(2)}</p><p class="muted">mol</p></div>
             <div class="stat"><p class="kicker">N</p><p class="stat-v tiny-stat">${fmtSci(N)}</p><p class="muted">entità</p></div>
@@ -1387,7 +1756,7 @@ function lessonBody(id) {
           <div class="card">
             <p class="kicker">Massa pesata</p>
             <label class="range">
-              <span>${fmtMass(mass)} g · n = m / M</span>
+              <span data-live="lab-mass-lab">${fmtMass(mass)} g · n = m / M</span>
               <input type="range" min="0.5" max="${Math.max(40, Math.round(M * 4))}" step="0.5" value="${mass}" data-act="lab-mass" aria-label="Massa in grammi"/>
             </label>
             <p class="mono cfg-sm">${esc(partsLine)} → ${fmtMass(M)} g/mol</p>
@@ -1396,14 +1765,16 @@ function lessonBody(id) {
           <div class="card">
             <p class="kicker">Matraccio · molarità</p>
             <div class="lab-row">
-              ${flaskSvg(c, fill)}
+              <div data-live="lab-flask">${flaskSvg(c, fill)}</div>
               <div>
                 <label class="range">
-                  <span>V = ${vol.toFixed(2)} L</span>
+                  <span data-live="lab-vol-lab">V = ${vol.toFixed(2)} L</span>
                   <input type="range" min="0.05" max="2" step="0.05" value="${vol}" data-act="lab-vol" aria-label="Volume in litri"/>
                 </label>
+                <div data-live="lab-conc">
                 <p class="display">${c >= 10 ? c.toFixed(1) : c.toFixed(2)} <span class="muted">mol/L</span></p>
                 <p class="muted tiny">c = n / V = ${n.toFixed(3)} / ${vol.toFixed(2)}</p>
+                </div>
                 <p class="muted tiny">Per diluire: c₁V₁ = c₂V₂. Il soluto (moli) resta, cambia solo V.</p>
               </div>
             </div>
@@ -1430,21 +1801,21 @@ function lessonBody(id) {
       <p class="lede">pH = −log₁₀ [H₃O⁺]. Ogni unità è un fattore dieci. L’acqua pura a 25 °C sta a 7 perché Kw = 10⁻¹⁴. La cartina e il pHmetro raccontano la stessa [H⁺] in due linguaggi.</p>
       <div class="split">
         <div class="card lab-stage">
-          <p class="kicker">pHmetro · ${esc(kind)}</p>
-          <div class="ph-bench">
+          <p class="kicker" data-live="ph-kind">pHmetro · ${esc(kind)}</p>
+          <div class="ph-bench" data-live="ph-bench">
             ${electrodeSvg(pH)}
             ${beakerSvg(css, `soluzione pH ${pH.toFixed(1)}`, { level: 0.62, bubbles: pH < 2 || pH > 12 })}
           </div>
-          <p class="ph-readout" style="color:${css}">${pH.toFixed(2)}</p>
-          ${stripSvg(pH)}
+          <p class="ph-readout" data-live="ph-readout" style="color:${css}">${pH.toFixed(2)}</p>
+          <div data-live="ph-strip">${stripSvg(pH)}</div>
         </div>
         <div class="stack">
           <div class="card">
             <label class="range">
-              <span>pH = <b class="mono">${pH.toFixed(2)}</b></span>
+              <span data-live="ph-lab">pH = <b class="mono">${pH.toFixed(2)}</b></span>
               <input type="range" min="0" max="14" step="0.1" value="${pH}" data-act="ph" aria-label="Valore di pH"/>
             </label>
-            <div class="props two mt">
+            <div class="props two mt" data-live="ph-props">
               <div class="prop"><p class="kicker">[H₃O⁺]</p><p class="mono">${fmtSci(h)} M</p></div>
               <div class="prop"><p class="kicker">[OH⁻]</p><p class="mono">${fmtSci(oh)} M</p></div>
               <div class="prop"><p class="kicker">pOH</p><p class="mono">${pOH.toFixed(2)}</p></div>
@@ -1481,9 +1852,10 @@ function lessonBody(id) {
           </div>
           <span class="badge">${esc(info.kind)}</span>
         </div>
-        <div class="iso-stage mt">${skeletalSvg(state.isoSkel, state.isoGroup, state.isoPos, geo)}</div>
+        <div class="iso-stage mt" data-live="iso-stage">${isoMoleculeSvg(state.isoSkel, state.isoGroup, state.isoPos, geo, state.isoDepth)}</div>
+        ${depthControl("iso-depth", state.isoDepth, "3D a sfere", "formula 2D")}
         <p class="lede">${esc(info.vs)}</p>
-        <p class="tiny muted">Tocca un carbonio numerato per attaccare il gruppo. I numeri sono l’ordine di catena, non atomi “extra”.</p>
+        <p class="tiny muted">Trascina la vista da 3D (atomi come sfere) alla formula di struttura. Tocca un carbonio numerato per attaccare il gruppo.</p>
         <div class="chips mt">
           ${chip(state.isoSkel === "n", "iso-skel:n", "Catena lineare")}
           ${chip(state.isoSkel === "iso", "iso-skel:iso", "Ramificata")}
@@ -1560,13 +1932,12 @@ function lessonBody(id) {
       const stag = Math.abs(((ang % 120) - 60)) < 12;
       body = `<div class="split">
         <div class="card center">
-          ${newmanSvg(ang)}
-          ${energyCurve(ang)}
+          <div data-live="newman-draw">${newmanSvg(ang)}${energyCurve(ang)}</div>
         </div>
         <div>
           <p class="lede">Si guarda lungo un C–C. Il carbonio anteriore è il punto, il posteriore il cerchio. Ruota l’angolo diedro ω.</p>
           <label class="range">
-            <span>ω = ${Math.round(ang)}° · ${ecl ? "eclissato · massimo" : stag ? "sfalsato · minimo" : "intermedio"}</span>
+            <span data-live="newman-lab">ω = ${Math.round(ang)}° · ${ecl ? "eclissato · massimo" : stag ? "sfalsato · minimo" : "intermedio"}</span>
             <input type="range" min="0" max="360" step="1" value="${ang}" data-act="newman" aria-label="Angolo diedro"/>
           </label>
           <div class="chips">
@@ -1583,7 +1954,10 @@ function lessonBody(id) {
       </div>`;
     } else if (mode === "geo") {
       body = `<div class="split">
-        <div class="card center">${buteneSvg(state.geoIsomer)}</div>
+        <div class="card center">
+          <div data-live="geo-draw">${isoMoleculeSvg("n", "=", 2, state.geoIsomer, state.stereoDepth)}</div>
+          ${depthControl("stereo-depth", state.stereoDepth, "3D a sfere", "formula 2D")}
+        </div>
         <div>
           <p class="lede">Il π vieta la rotazione intorno al C=C. Se ciascun carbonio sp² ha due sostituenti diversi, esistono due configurazioni.</p>
           <div class="chips">${chip(state.geoIsomer === "cis", "geo:cis", "cis · Z")} ${chip(state.geoIsomer === "trans", "geo:trans", "trans · E")}</div>
@@ -1600,17 +1974,18 @@ function lessonBody(id) {
         <div class="split">
           <div class="card center">
             <p class="kicker">${state.opticalFace === "R" ? "Enantiomero R" : "Enantiomero S"}</p>
-            ${tetraSvg(state.opticalFace, false)}
+            <div data-live="opt-draw">${tetra3dSvg(state.opticalFace, false, state.stereoDepth)}</div>
           </div>
           ${
             state.showMirror
               ? `<div class="card center">
                   <p class="kicker">Immagine speculare</p>
-                  ${tetraSvg(state.opticalFace === "R" ? "S" : "R", true)}
+                  <div data-live="opt-mirror">${tetra3dSvg(state.opticalFace === "R" ? "S" : "R", true, state.stereoDepth)}</div>
                 </div>`
               : `<div class="card"><p class="lede">Nascondi lo specchio e prova a sovrapporre ruotando: non si può, senza spezzare un legame.</p></div>`
           }
         </div>
+        ${depthControl("stereo-depth", state.stereoDepth, "tetraedro 3D", "cunei 2D")}
         ${polarimeter(state.opticalFace)}
         <div class="chips">
           ${chip(state.opticalFace === "R", "opt:R", "R")}
@@ -1826,6 +2201,7 @@ function onAct(act, el, ev) {
     }
     state.symbol = sym;
     state.query = "";
+    state.ionCharge = 0;
     render();
     document.querySelector(".peek")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;
@@ -2084,7 +2460,10 @@ function tickPlay() {
   }
   playTimer = window.setTimeout(() => {
     state.aufbauZ = Math.min(118, state.aufbauZ + 1);
-    render();
+    const slider = root.querySelector('input[data-act="z"]');
+    if (slider) slider.value = String(state.aufbauZ);
+    if (root.querySelector("[data-live=z-label]")) patchLive("z");
+    else render();
     tickPlay();
   }, 140);
 }
@@ -2121,6 +2500,12 @@ function bind() {
     } else if (act === "newman") {
       state.newmanAngle = Number(el.value);
       renderKeepFocus(el);
+    } else if (act === "iso-depth") {
+      state.isoDepth = Number(el.value) / 100;
+      renderKeepFocus(el);
+    } else if (act === "stereo-depth") {
+      state.stereoDepth = Number(el.value) / 100;
+      renderKeepFocus(el);
     } else if (act === "cmpq:A" || act === "cmpq:B") {
       const key = act.endsWith("A") ? "A" : "B";
       const q = el.value;
@@ -2152,15 +2537,157 @@ function bind() {
   });
 }
 
+function labNow() {
+  const spec = LAB_SPECIES.find((s) => s.id === state.labCmp) ?? LAB_SPECIES[0];
+  const M = formulaMass(spec.parts);
+  const mass = Number(state.labMass) || 0;
+  const vol = Math.max(0.01, Number(state.labVol) || 0.25);
+  const n = M > 0 ? mass / M : 0;
+  const N = n * NA;
+  const c = n / vol;
+  const fill = spec.id === "fe" ? rgba(PAL.core, 0.55) : rgba(PAL.electron, 0.45);
+  return { spec, M, mass, vol, n, N, c, fill };
+}
+
+function setLive(id, html) {
+  const node = root?.querySelector(`[data-live="${id}"]`);
+  if (node) node.innerHTML = html;
+}
+
+function patchLive(act) {
+  if (!root) return;
+  if (act === "z") {
+    const z = state.aufbauZ;
+    const element = BY_Z.get(z) ?? ELEMENTS[0];
+    const occ = element.occupancy;
+    const predicted = fillAufbau(z);
+    setLive("z-label", `Z = <b class="mono">${z}</b> · ${esc(element.name)} <span class="mono">${esc(element.symbol)}</span>`);
+    const map = root.querySelector("[data-live=z-map]");
+    if (map) {
+      map.querySelectorAll(".orb[data-act^='orb:']").forEach((btn) => {
+        const id = btn.getAttribute("data-act").slice(4);
+        const filled = occ[id] ?? 0;
+        const cap = orbitalCapacity(id);
+        const pred = predicted[id] ?? 0;
+        const pct = (filled / cap) * 100;
+        btn.classList.toggle("is-fill", filled > 0);
+        const bar = btn.querySelector(".orb-bar");
+        if (bar) bar.style.width = `${pct}%`;
+        const txt = btn.querySelector(".orb-txt");
+        if (txt) txt.innerHTML = `${id} <small>${filled}/${cap}</small>${filled !== pred ? " <em>≠</em>" : ""}`;
+      });
+    }
+    const cfg = root.querySelector("[data-live=z-cfg]");
+    if (cfg) cfg.textContent = formatCondensed(occ, z);
+    const note = root.querySelector("[data-live=z-note]");
+    if (note) {
+      note.className = `tiny ${element.exception ? "warn" : "muted"}`;
+      note.textContent = element.exception
+        ? "Eccezione: la configurazione reale differisce dall’ordine Madelung puro."
+        : "Segue l’ordine n+ℓ (Madelung). Diagonale: 4s prima di 3d, 5s prima di 4d, 6s prima di 4f.";
+    }
+    const mad = root.querySelector("[data-live=z-madelung]");
+    if (mad) {
+      mad.querySelectorAll("li").forEach((li, i) => {
+        const id = AUFBAU_ORDER[i];
+        li.classList.toggle("is-fill", (occ[id] ?? 0) > 0);
+      });
+    }
+    return;
+  }
+  if (act === "lab-mass" || act === "lab-vol") {
+    const { spec, M, mass, vol, n, N, c, fill } = labNow();
+    setLive("lab-beaker", beakerSvg(fill, spec.name, { level: Math.min(0.82, 0.25 + n * 0.12), bubbles: n > 0.4 }));
+    setLive(
+      "lab-stats",
+      `<div class="stat"><p class="kicker">M</p><p class="stat-v">${fmtMass(M)}</p><p class="muted">g/mol</p></div>
+       <div class="stat is-on"><p class="kicker">n</p><p class="stat-v">${n < 0.1 ? n.toFixed(3) : n.toFixed(2)}</p><p class="muted">mol</p></div>
+       <div class="stat"><p class="kicker">N</p><p class="stat-v tiny-stat">${fmtSci(N)}</p><p class="muted">entità</p></div>`,
+    );
+    setLive("lab-mass-lab", `${fmtMass(mass)} g · n = m / M`);
+    setLive("lab-flask", flaskSvg(c, fill));
+    setLive("lab-vol-lab", `V = ${vol.toFixed(2)} L`);
+    setLive(
+      "lab-conc",
+      `<p class="display">${c >= 10 ? c.toFixed(1) : c.toFixed(2)} <span class="muted">mol/L</span></p><p class="muted tiny">c = n / V = ${n.toFixed(3)} / ${vol.toFixed(2)}</p>`,
+    );
+    return;
+  }
+  if (act === "ph") {
+    const pH = Number(state.phValue);
+    const h = hFromPh(pH);
+    const oh = 1e-14 / h;
+    const pOH = 14 - pH;
+    const css = phColorCss(pH);
+    const kind = pH < 3 ? "acido forte" : pH < 6.5 ? "acido" : pH <= 7.5 ? "neutro" : pH < 11 ? "basico" : "base forte";
+    const sample = PH_SAMPLES.reduce((best, s) => (Math.abs(s.pH - pH) < Math.abs(best.pH - pH) ? s : best), PH_SAMPLES[0]);
+    const kindEl = root.querySelector("[data-live=ph-kind]");
+    if (kindEl) kindEl.textContent = `pHmetro · ${kind}`;
+    setLive(
+      "ph-bench",
+      `${electrodeSvg(pH)}${beakerSvg(css, `soluzione pH ${pH.toFixed(1)}`, { level: 0.62, bubbles: pH < 2 || pH > 12 })}`,
+    );
+    const read = root.querySelector("[data-live=ph-readout]");
+    if (read) {
+      read.style.color = css;
+      read.textContent = pH.toFixed(2);
+    }
+    setLive("ph-strip", stripSvg(pH));
+    setLive("ph-lab", `pH = <b class="mono">${pH.toFixed(2)}</b>`);
+    setLive(
+      "ph-props",
+      `<div class="prop"><p class="kicker">[H₃O⁺]</p><p class="mono">${fmtSci(h)} M</p></div>
+       <div class="prop"><p class="kicker">[OH⁻]</p><p class="mono">${fmtSci(oh)} M</p></div>
+       <div class="prop"><p class="kicker">pOH</p><p class="mono">${pOH.toFixed(2)}</p></div>
+       <div class="prop"><p class="kicker">Kw</p><p class="mono">1,0×10⁻¹⁴</p></div>`,
+    );
+    const near = root.querySelector(".lede.mt");
+    if (near && near.textContent && near.textContent.indexOf("Vicino a") !== -1) {
+      near.innerHTML = `Vicino a: <b>${esc(sample.name)}</b> (${esc(sample.kind)}). Acido forte 0,10 M → pH 1; base forte 0,10 M → pH 13. Un acido debole della stessa c sta più in alto.`;
+    }
+    return;
+  }
+  if (act === "newman") {
+    const ang = Number(state.newmanAngle);
+    const ecl = Math.min(...[0, 120, 240].map((k) => Math.abs(((ang - k + 180) % 360) - 180))) < 12;
+    const stag = Math.abs(ang % 120 - 60) < 12;
+    setLive("newman-draw", `${newmanSvg(ang)}${energyCurve(ang)}`);
+    setLive("newman-lab", `ω = ${Math.round(ang)}° · ${ecl ? "eclissato · massimo" : stag ? "sfalsato · minimo" : "intermedio"}`);
+    return;
+  }
+  if (act === "iso-depth") {
+    const info = describeIsomer({ skel: state.isoSkel, group: state.isoGroup, pos: state.isoPos });
+    const geo = info.name === "but-2-ene" ? state.geoIsomer : "cis";
+    setLive("iso-stage", isoMoleculeSvg(state.isoSkel, state.isoGroup, state.isoPos, geo, state.isoDepth));
+    const pct = Math.round(state.isoDepth * 100);
+    setLive("iso-depth-lab", pct < 35 ? "formula 2D" : pct > 65 ? "3D a sfere" : "proiezione");
+    return;
+  }
+  if (act === "stereo-depth") {
+    const pct = Math.round(state.stereoDepth * 100);
+    setLive("geo-draw", isoMoleculeSvg("n", "=", 2, state.geoIsomer, state.stereoDepth));
+    setLive("opt-draw", tetra3dSvg(state.opticalFace, false, state.stereoDepth));
+    if (state.showMirror) setLive("opt-mirror", tetra3dSvg(state.opticalFace === "R" ? "S" : "R", true, state.stereoDepth));
+    root.querySelectorAll("[data-live='stereo-depth-lab']").forEach((n) => {
+      n.textContent = pct < 35 ? "formula 2D" : pct > 65 ? "3D a sfere" : "proiezione";
+    });
+    return;
+  }
+}
+
 function renderKeepFocus(el) {
   const act = el.getAttribute("data-act");
+  if (el.type === "range") {
+    patchLive(act);
+    return;
+  }
   const start = el.selectionStart;
   const end = el.selectionEnd;
   render();
   const next = root.querySelector(`[data-act="${act}"]`);
   if (next) {
     next.focus();
-    if (typeof start === "number") next.setSelectionRange(start, end);
+    if (typeof start === "number" && next.setSelectionRange) next.setSelectionRange(start, end);
   }
 }
 
