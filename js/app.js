@@ -94,12 +94,14 @@ const NAV = [
   { id: "atomo", href: "#/atomo", label: "Atomo", short: "Atomo", icon: "orbit" },
   { id: "lab", href: "#/lab", label: "Laboratorio", short: "Lab", icon: "beaker" },
   { id: "studio", href: "#/studio", label: "Studio", short: "Studio", icon: "book" },
+  { id: "molview", href: "#/builder", label: "Builder", short: "Builder", icon: "mol", desktopOnly: true },
 ];
 const ICONS = {
   grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>',
   orbit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/></svg>',
   beaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M9 3v4.2L4.8 18.4A2 2 0 0 0 6.6 21h10.8a2 2 0 0 0 1.8-2.6L15 7.2V3"/><path d="M8.5 14h7"/></svg>',
   book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  mol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.2" cy="12" r="2.3"/><circle cx="16.6" cy="6.6" r="2.3"/><circle cx="16.6" cy="17.4" r="2.3"/><path d="M9.3 11.05L14.5 7.55M9.3 12.95L14.5 16.45"/></svg>',
 };
 
 const PAL = {
@@ -1173,6 +1175,7 @@ function parseRoute() {
   if (a === "atomo" || a === "aufbau") return { view: "atomo" };
   if (a === "lab" || a === "basi") return { view: "lab", lesson: parts[1] };
   if (a === "studio") return { view: "studio", studio: parts[1] };
+  if (a === "molview" || a === "molecola" || a === "builder") return { view: "molview" };
   if (a === "elemento" && parts[1]) return { view: "elemento", symbol: parts[1] };
   if (["quiz", "glossario", "confronta", "tendenze"].includes(a)) return { view: "studio", studio: a };
   return { view: "tavola" };
@@ -1231,13 +1234,15 @@ function shell(inner) {
         ${installHtml()}
       </div>
     </header>
-    <main id="contenuto" class="main">${inner}</main>
+    <main id="contenuto" class="main${state.view === "molview" ? " main-molview" : ""}">${inner}</main>
     <nav class="eh-dock" aria-label="Navigazione principale">
       <ul class="eh-dock-bar">
-        ${NAV.map(
-          (n) =>
-            `<li><a class="eh-dock-item${nav === n.id ? " is-active" : ""}" href="${n.href}" data-act="go" data-hash="${n.href}" ${nav === n.id ? 'aria-current="page"' : ""}>${ICONS[n.icon]}<span class="eh-dock-label">${esc(n.short)}</span></a></li>`,
-        ).join("")}
+        ${NAV.filter((n) => !n.desktopOnly)
+          .map(
+            (n) =>
+              `<li><a class="eh-dock-item${nav === n.id ? " is-active" : ""}" href="${n.href}" data-act="go" data-hash="${n.href}" ${nav === n.id ? 'aria-current="page"' : ""}>${ICONS[n.icon]}<span class="eh-dock-label">${esc(n.short)}</span></a></li>`,
+          )
+          .join("")}
       </ul>
     </nav>`;
 }
@@ -2150,24 +2155,58 @@ function viewStudio() {
   </div>`;
 }
 
+function viewMolView() {
+  return `<div class="mv-root" data-molview-root></div>`;
+}
+
 function view() {
   if (state.view === "atomo") return viewAtomo();
   if (state.view === "lab") return viewLab();
   if (state.view === "studio") return viewStudio();
   if (state.view === "elemento") return viewElemento();
+  if (state.view === "molview") return viewMolView();
   return viewTavola();
+}
+
+let molViewToken = 0;
+
+function teardownMolView() {
+  molViewToken += 1;
+  if (typeof window !== "undefined" && window.__ehMolUnmount) {
+    try {
+      window.__ehMolUnmount();
+    } catch {
+      /* ignore */
+    }
+    window.__ehMolUnmount = null;
+  }
 }
 
 function render() {
   if (!root) return;
+  const staying = state.view === "molview" && root.classList.contains("is-molview");
+  if (staying) return;
+  teardownMolView();
   const y = window.scrollY;
+  root.classList.toggle("is-molview", state.view === "molview");
   root.innerHTML = shell(view());
-  if (state.view === "tavola" || state.view === "lab") {
-    /* keep */
-  }
-  const keep = root.querySelector("[data-keep-scroll]");
-  if (!keep) {
-    /* don't jump on small widget updates if same view - still reset on route change handled by go() */
+  if (state.view === "molview") {
+    const host = root.querySelector("[data-molview-root]");
+    const token = ++molViewToken;
+    import("./molview.js")
+      .then((mod) => {
+        if (token !== molViewToken || state.view !== "molview" || !host.isConnected) return;
+        mod.mountMolView(host);
+        window.__ehMolUnmount = mod.unmountMolView;
+      })
+      .catch((err) => {
+        console.error(err);
+        if (host && host.isConnected) {
+          host.innerHTML = `<div class="mv-mobile" style="display:block"><p class="kicker">Editor molecolare</p><h2>Impossibile caricare Builder</h2><p class="lede">Ricarica la pagina. Serve WebGL e JavaScript attivi.</p></div>`;
+        }
+      });
+    window.scrollTo(0, 0);
+    return;
   }
   window.scrollTo(0, Math.min(y, document.body.scrollHeight));
 }
@@ -2177,6 +2216,7 @@ function setHashFromState() {
   if (state.view === "atomo") h = "/atomo";
   else if (state.view === "lab") h = `/lab/${state.lesson}`;
   else if (state.view === "studio") h = `/studio/${state.studio}`;
+  else if (state.view === "molview") h = "/builder";
   else if (state.view === "elemento") h = `/elemento/${state.symbol}`;
   const next = `#${h}`.replace("#//", "#/");
   if (location.hash !== next && location.hash !== next.replace(/^#/, "#")) {
