@@ -1,4 +1,4 @@
-const CACHE = "electronhub-v6";
+const CACHE = "electronhub-v2.1";
 const ASSETS = ["./", "./index.html", "./styles.css", "./js/app.js", "./js/chemistry.js", "./js/content.js", "./js/raw-data.js"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
